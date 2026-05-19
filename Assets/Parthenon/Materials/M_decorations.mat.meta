@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 17aa37f3a0c696e4a8af4de7d8daa7ac
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 334422
+  packageName: The Parthenon
+  packageVersion: 1.1
+  assetPath: Assets/Parthenon/Materials/M_decorations.mat
+  uploadId: 894070

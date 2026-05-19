@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: ef32096749650594c9e160bc0c40c075
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 334422
+  packageName: The Parthenon
+  packageVersion: 1.1
+  assetPath: Assets/Parthenon/Materials/M_Brick.mat
+  uploadId: 894070

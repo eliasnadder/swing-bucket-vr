@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 01b737a177d41214f86d71a580a51bff
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 334422
+  packageName: The Parthenon
+  packageVersion: 1.1
+  assetPath: Assets/Parthenon/Materials/M_coffers.mat
+  uploadId: 894070

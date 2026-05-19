@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 9a6d4496fd5a2204a92890f9574e12e8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 334422
+  packageName: The Parthenon
+  packageVersion: 1.1
+  assetPath: Assets/Parthenon/Materials/M_Brick_Blue.mat
+  uploadId: 894070
