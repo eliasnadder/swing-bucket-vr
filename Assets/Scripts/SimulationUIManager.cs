@@ -1,122 +1,190 @@
 using UnityEngine;
-using UnityEngine.UI; // Kept for Sliders and Buttons
-using TMPro;          // Added to support TextMeshPro elements
+using UnityEngine.UI;
+using TMPro;
 
 public class SimulationUIManager : MonoBehaviour
 {
     [Header("Engine References")]
     public SwingingPendulum pendulumEngine;
     public FluidSPHSystem fluidEngine;
+    public PaintSurfaceCanvas canvasEngine;
 
-    [Header("UI Sliders - Pendulum Properties")]
+    // ============== Pendulum ==============
+    [Header("Pendulum Sliders")]
     public Slider lengthSlider;
-    public TextMeshProUGUI lengthValueText; // Changed to TextMeshProUGUI
+    public TextMeshProUGUI lengthValueText;
 
     public Slider elasticitySlider;
-    public TextMeshProUGUI elasticityValueText; // Changed to TextMeshProUGUI
+    public TextMeshProUGUI elasticityValueText;
 
     public Slider airResistanceSlider;
-    public TextMeshProUGUI airResistanceValueText; // Changed to TextMeshProUGUI
+    public TextMeshProUGUI airResistanceValueText;
 
     public Slider gravitySlider;
-    public TextMeshProUGUI gravityValueText; // Changed to TextMeshProUGUI
+    public TextMeshProUGUI gravityValueText;
 
-    [Header("UI Sliders - Fluid Properties")]
+    // ============== Fluid =============
+    [Header("Fluid Sliders")]
     public Slider orificeSlider;
-    public TextMeshProUGUI orificeValueText; // Changed to TextMeshProUGUI
+    public TextMeshProUGUI orificeValueText;
 
-    [Header("UI Color Selection")]
-    public TMP_Dropdown colorDropdown; // Changed to TMP_Dropdown
+    // ======= Environment (Section 2.7) =======
+    [Header("Environment Sliders")]
+    [Tooltip("سرعة الرياح m/s — تؤثر على البندول والجسيمات")]
+    public Slider windSpeedSlider;
+    public TextMeshProUGUI windSpeedValueText;
 
-    [Header("Simulation Control")]
+    [Tooltip("درجة الحرارة °C — تُعدّل اللزوجة عبر أرينيوس")]
+    public Slider temperatureSlider;
+    public TextMeshProUGUI temperatureValueText;
+
+    [Tooltip("الرطوبة النسبية 0–100 % — تُعدّل انتشار الطلاء")]
+    public Slider humiditySlider;
+    public TextMeshProUGUI humidityValueText;
+
+    // ============== Canvas ==============
+    [Header("Canvas Sliders")]
+    [Tooltip("زاوية ميل اللوحة 0–90° — انزلاق الطلاء")]
+    public Slider tiltSlider;
+    public TextMeshProUGUI tiltValueText;
+
+    // ============== Dropdowns ==============
+    [Header("Dropdowns")]
+    public TMP_Dropdown colorDropdown;
+    [Tooltip("نوع سطح اللوحة: Canvas / Wood / Metal / Paper")]
+    public TMP_Dropdown surfaceTypeDropdown;
+
+    // ============== Buttons ==============
+    [Header("Buttons")]
     public Button restartButton;
 
+    // ============== Color palette ==============
+    private static readonly Color[] PaintColors =
+    {
+        Color.red,
+        Color.blue,
+        Color.green,
+        Color.yellow,
+        Color.magenta,
+        Color.cyan,
+        new Color(1f, 0.5f, 0f),   // Orange
+        Color.white,
+    };
+
+    // ============== Function ==============
     void Start()
+    {
+        InitSliderValues();
+        BindListeners();
+        UpdateLabels();
+    }
+
+    // ======= Initialise slider values from engine defaults =======
+    void InitSliderValues()
     {
         if (pendulumEngine != null)
         {
-            lengthSlider.value = pendulumEngine.L0;
-            elasticitySlider.value = pendulumEngine.k_rope;
-            airResistanceSlider.value = pendulumEngine.b;
-            gravitySlider.value = pendulumEngine.g;
+            SetSlider(lengthSlider, pendulumEngine.L0);
+            SetSlider(elasticitySlider, pendulumEngine.k_rope);
+            SetSlider(airResistanceSlider, pendulumEngine.b);
+            SetSlider(gravitySlider, pendulumEngine.g);
         }
-
         if (fluidEngine != null)
         {
-            orificeSlider.value = fluidEngine.orificeDiameter;
+            SetSlider(orificeSlider, fluidEngine.orificeDiameter);
+            SetSlider(windSpeedSlider, fluidEngine.windSpeed);
+            SetSlider(temperatureSlider, fluidEngine.temperature);
+            SetSlider(humiditySlider, fluidEngine.humidity * 100f);
         }
-
-        lengthSlider.onValueChanged.AddListener(UpdateLength);
-        elasticitySlider.onValueChanged.AddListener(UpdateElasticity);
-        airResistanceSlider.onValueChanged.AddListener(UpdateAirResistance);
-        gravitySlider.onValueChanged.AddListener(UpdateGravity);
-        orificeSlider.onValueChanged.AddListener(UpdateOrificeDiameter);
-
-        if (colorDropdown != null)
-            colorDropdown.onValueChanged.AddListener(UpdatePaintColor);
-
-        if (restartButton != null)
-            restartButton.onClick.AddListener(RestartSimulationScene);
-
-        UpdateLabels();
+        if (canvasEngine != null)
+        {
+            SetSlider(tiltSlider, canvasEngine.tiltAngle);
+        }
     }
 
-    void UpdateLength(float value)
+    static void SetSlider(Slider s, float val)
+    { if (s != null) s.value = val; }
+
+    // ============== Bind all listeners ==============
+    void BindListeners()
     {
-        if (pendulumEngine != null) pendulumEngine.L0 = value;
-        UpdateLabels();
+        // Pendulum
+        Bind(lengthSlider, v => { if (pendulumEngine) pendulumEngine.L0 = v; });
+        Bind(elasticitySlider, v => { if (pendulumEngine) pendulumEngine.k_rope = v; });
+        Bind(airResistanceSlider, v => { if (pendulumEngine) pendulumEngine.b = v; });
+        Bind(gravitySlider, v => { if (pendulumEngine) pendulumEngine.g = v; });
+
+        // Fluid
+        Bind(orificeSlider, v => { if (fluidEngine) fluidEngine.orificeDiameter = v; });
+
+        // Environment — synced to BOTH pendulum wind AND fluid wind
+        Bind(windSpeedSlider, v =>
+        {
+            if (fluidEngine) fluidEngine.windSpeed = v;
+            if (pendulumEngine) pendulumEngine.windSpeed = v;
+        });
+        Bind(temperatureSlider, v => { if (fluidEngine) fluidEngine.temperature = v; });
+        Bind(humiditySlider, v => { if (fluidEngine) fluidEngine.humidity = v / 100f; });
+
+        // Canvas
+        Bind(tiltSlider, v => { if (canvasEngine) canvasEngine.tiltAngle = v; });
+
+        // Dropdowns
+        if (colorDropdown != null) colorDropdown.onValueChanged.AddListener(ApplyColor);
+        if (surfaceTypeDropdown != null) surfaceTypeDropdown.onValueChanged.AddListener(ApplySurface);
+
+        // Buttons
+        if (restartButton != null) restartButton.onClick.AddListener(RestartScene);
     }
 
-    void UpdateElasticity(float value)
+    // Helper — bind slider + label refresh
+    void Bind(Slider s, System.Action<float> action)
     {
-        if (pendulumEngine != null) pendulumEngine.k_rope = value;
-        UpdateLabels();
+        if (s == null) return;
+        s.onValueChanged.AddListener(v => { action(v); UpdateLabels(); });
     }
 
-    void UpdateAirResistance(float value)
-    {
-        if (pendulumEngine != null) pendulumEngine.b = value;
-        UpdateLabels();
-    }
-
-    void UpdateGravity(float value)
-    {
-        if (pendulumEngine != null) pendulumEngine.g = value;
-        UpdateLabels();
-    }
-
-    void UpdateOrificeDiameter(float value)
-    {
-        if (fluidEngine != null) fluidEngine.orificeDiameter = value;
-        UpdateLabels();
-    }
-
-    void UpdatePaintColor(int index)
+    // ============== Colour dropdown ==============
+    void ApplyColor(int index)
     {
         if (fluidEngine == null) return;
-
-        switch (index)
-        {
-            case 0: fluidEngine.ChangePaintColor(Color.red); break;
-            case 1: fluidEngine.ChangePaintColor(Color.blue); break;
-            case 2: fluidEngine.ChangePaintColor(Color.green); break;
-            case 3: fluidEngine.ChangePaintColor(Color.yellow); break;
-            default: fluidEngine.ChangePaintColor(Color.red); break;
-        }
+        fluidEngine.ChangePaintColor(
+            index < PaintColors.Length ? PaintColors[index] : Color.red);
     }
 
+    // ============== Surface type dropdown ==============
+    void ApplySurface(int index)
+    {
+        if (canvasEngine == null) return;
+        canvasEngine.surfaceType = (PaintSurfaceCanvas.SurfaceType)
+            Mathf.Clamp(index, 0, 3);
+    }
+
+    // ============== Label update ==============
     void UpdateLabels()
     {
-        if (lengthValueText != null) lengthValueText.text = lengthSlider.value.ToString("F2") + " m";
-        if (elasticityValueText != null) elasticityValueText.text = elasticitySlider.value.ToString("F0") + " N/m";
-        if (airResistanceValueText != null) airResistanceValueText.text = airResistanceSlider.value.ToString("F3");
-        if (gravityValueText != null) gravityValueText.text = gravitySlider.value.ToString("F2") + " m/s²";
-        if (orificeValueText != null) orificeValueText.text = (orificeSlider.value * 1000f).ToString("F1") + " mm";
+        SetLabel(lengthValueText, lengthSlider, v => $"{v:F2} m");
+        SetLabel(elasticityValueText, elasticitySlider, v => $"{v:F0} N/m");
+        SetLabel(airResistanceValueText, airResistanceSlider, v => $"{v:F3}");
+        SetLabel(gravityValueText, gravitySlider, v => $"{v:F2} m/s²");
+        SetLabel(orificeValueText, orificeSlider, v => $"{v * 1000f:F1} mm");
+        SetLabel(windSpeedValueText, windSpeedSlider, v => $"{v:F1} m/s");
+        SetLabel(temperatureValueText, temperatureSlider, v => $"{v:F0} °C");
+        SetLabel(humidityValueText, humiditySlider, v => $"{v:F0} %");
+        SetLabel(tiltValueText, tiltSlider, v => $"{v:F0}°");
     }
 
-    void RestartSimulationScene()
+    static void SetLabel(TextMeshProUGUI label, Slider slider,
+                         System.Func<float, string> format)
     {
-        string activeSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        UnityEngine.SceneManagement.SceneManager.LoadScene(activeSceneName);
+        if (label != null && slider != null)
+            label.text = format(slider.value);
+    }
+
+    // ============== Restart ==============
+    void RestartScene()
+    {
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
     }
 }
