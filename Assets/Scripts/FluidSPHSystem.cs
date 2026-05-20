@@ -9,24 +9,21 @@ public class FluidSPHSystem : MonoBehaviour
         public Vector3 velocity;
         public float density;
         public float pressure;
-        public Color color; // Dynamic color tracking per particle
+        public Color color; 
     }
-    [Header("Dynamic Color Setup")]
-    public Color currentPaintColor = Color.red; // Can be altered via UI mid-simulation
 
-    [Header("Relying References")]
+    public Color currentPaintColor = Color.red; 
     public SwingingPendulum pendulum;
 
-    [Header("Fluid Properties (Table 2.4.2)")]
-    public float orificeDiameter = 0.05f; // قطر فتحة الخروج d
-    public float h_paint = 0.3f;          // ارتفاع عمود الطلاء داخل الدلو h
-    public float Cd = 0.6f;               // معامل التدفق
-    public float paintDensity0 = 1200f;   // الكثافة الطبيعية للطلاء
-    public float viscosity = 0.1f;        // معامل اللزوجة
-    public float h_kernel = 0.2f;         // نصف قطر دالة التنعيم SPH
+    public float orificeDiameter = 0.05f; 
+    public float h_paint = 0.3f;          
+    public float Cd = 0.6f;               
+    public float paintDensity0 = 1200f;   
+    public float viscosity = 0.1f;        
+    public float h_kernel = 0.2f;         
 
     private List<SPHParticle> particles = new List<SPHParticle>();
-    private float initialVolume = 0.01f; // حجم الطلاء الابتدائي م3
+    private float initialVolume = 0.01f; 
     private float currentVolume;
 
     void Start()
@@ -35,7 +32,6 @@ public class FluidSPHSystem : MonoBehaviour
         if (pendulum == null) pendulum = GetComponent<SwingingPendulum>();
     }
 
-    // Public method for UI interaction to refill or change fluid settings dynamically
     public void ChangePaintColor(Color newColor)
     {
         currentPaintColor = newColor;
@@ -47,7 +43,7 @@ public class FluidSPHSystem : MonoBehaviour
 
         float dt = Time.fixedDeltaTime;
 
-        // 1. تطبيق قانون تورتشيلي لحساب سرعة ومعدل التدفق (Q = Cd * A * Sqrt(2 * geff * h))
+        // 1. تطبيق قانون تورتشيلي 
         float area = Mathf.PI * Mathf.Pow(orificeDiameter / 2f, 2);
         float geff = pendulum.EffectiveGravity;
         float v_out = Mathf.Sqrt(2f * geff * h_paint);
@@ -58,12 +54,10 @@ public class FluidSPHSystem : MonoBehaviour
         currentVolume -= volumeToEmit;
         float massToEmit = volumeToEmit * paintDensity0;
         pendulum.UpdateBucketMass(massToEmit);
-
-        // تحديث ارتفاع عمود السائل المتناقص تدريجياً داخل الدلو
         h_paint = (currentVolume / initialVolume) * 0.3f;
 
         // 2. توليد الجسيمات بناءً على معدل التدفق اللحظي
-        int particlesToSpawn = Mathf.RoundToInt(Q * 10000f * dt); // عامل تحجيم بصري للجسيمات
+        int particlesToSpawn = Mathf.RoundToInt(Q * 10000f * dt); 
         for (int i = 0; i < particlesToSpawn; i++)
         {
             SPHParticle p = new SPHParticle();
@@ -72,7 +66,7 @@ public class FluidSPHSystem : MonoBehaviour
             p.velocity = pendulum.DailVelocity + Vector3.down * v_out;
             p.density = paintDensity0;
             p.pressure = 0f;
-            p.color = currentPaintColor; // Assign the active color at emission moment
+            p.color = currentPaintColor; 
             particles.Add(p);
         }
 
@@ -108,7 +102,6 @@ public class FluidSPHSystem : MonoBehaviour
         {
             SPHParticle p = particles[i];
 
-            // القوى الخارجية المؤثرة (الجاذبية + مقاومة الهواء الفيزيائية Fdrag = 0.5 * Cd * rho * A * v^2)
             Vector3 F_gravity = Vector3.down * 9.81f;
             Vector3 F_drag = -0.5f * 0.47f * 1.2f * (Mathf.PI * 0.01f * 0.01f) * p.velocity.magnitude * p.velocity;
 
@@ -118,7 +111,6 @@ public class FluidSPHSystem : MonoBehaviour
 
             particles[i] = p;
 
-            // إرسال البيانات لنظام الرسم عند اصطدام الجسيم بسطح اللوحة (Y = 0 فرضا) بدون كولايدرز
             if (p.position.y <= 0f)
             {
                 PaintSurfaceCanvas.Instance.PaintAt(p.position, p.velocity, p.color);
