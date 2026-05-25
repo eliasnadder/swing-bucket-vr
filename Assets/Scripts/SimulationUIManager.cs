@@ -5,7 +5,7 @@ using TMPro;
 public class SimulationUIManager : MonoBehaviour
 {
     [Header("Engine References")]
-    public SwingingPendulum pendulumEngine;
+    public SwingingCoupledSpringPendulum pendulumEngine;
     public FluidSPHSystem fluidEngine;
     public PaintSurfaceCanvas canvasEngine;
 

@@ -15,7 +15,7 @@ public class FluidSPHSystem : MonoBehaviour
     }
 
     [Header("Relying References")]
-    public SwingingPendulum pendulum;
+    public SwingingCoupledSpringPendulum pendulum;
 
     [Header("Fluid Properties (Table 2.4.2)")]
     public float orificeDiameter = 0.05f; // قطر فتحة الخروج d
@@ -66,7 +66,7 @@ public class FluidSPHSystem : MonoBehaviour
         currentVolume = initialVolume;
         initialPaintHeight = h_paint;
         poly6Norm = 315f / (64f * Mathf.PI * Mathf.Pow(h_kernel, 9f));
-        if (pendulum == null) pendulum = GetComponent<SwingingPendulum>();
+        if (pendulum == null) pendulum = GetComponent<SwingingCoupledSpringPendulum>();
     }
 
     // ===================================================
