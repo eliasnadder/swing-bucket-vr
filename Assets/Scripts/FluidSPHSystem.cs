@@ -44,7 +44,7 @@ public class FluidSPHSystem : MonoBehaviour
 
     // =============== Private state ===============
     private List<SPHParticle> particles = new List<SPHParticle>();
-    private float initialVolume = 0.01f; // حجم الطلاء الابتدائي م3
+    public float initialVolume = 0.01f; // حجم الطلاء الابتدائي م3
     private float currentVolume;
     private float initialPaintHeight;
 

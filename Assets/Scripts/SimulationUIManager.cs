@@ -17,48 +17,58 @@ public class SimulationUIManager : MonoBehaviour
     public Slider elasticitySlider;
     public TextMeshProUGUI elasticityValueText;
 
+    public Slider ropeDampingSlider;        // c_rope — جديد
+    public TextMeshProUGUI ropeDampingValueText;
+
     public Slider airResistanceSlider;
     public TextMeshProUGUI airResistanceValueText;
 
     public Slider gravitySlider;
     public TextMeshProUGUI gravityValueText;
 
-    // ============== Fluid =============
+    public Slider initialAngleSlider;       // θ₀ — جديد
+    public TextMeshProUGUI initialAngleValueText;
+
+    public Slider initialOmegaSlider;       // ω₀ — جديد
+    public TextMeshProUGUI initialOmegaValueText;
+
+    // ============== Fluid ==============
     [Header("Fluid Sliders")]
     public Slider orificeSlider;
     public TextMeshProUGUI orificeValueText;
 
-    // ======= Environment (Section 2.7) =======
+    public Slider viscositySlider;          // لزوجة — جديد
+    public TextMeshProUGUI viscosityValueText;
+
+    public Slider paintAmountSlider;        // كمية الطلاء — جديد
+    public TextMeshProUGUI paintAmountValueText;
+
+    // ============== Environment (Section 2.7) ==============
     [Header("Environment Sliders")]
-    [Tooltip("سرعة الرياح m/s — تؤثر على البندول والجسيمات")]
     public Slider windSpeedSlider;
     public TextMeshProUGUI windSpeedValueText;
 
-    [Tooltip("درجة الحرارة °C — تُعدّل اللزوجة عبر أرينيوس")]
     public Slider temperatureSlider;
     public TextMeshProUGUI temperatureValueText;
 
-    [Tooltip("الرطوبة النسبية 0–100 % — تُعدّل انتشار الطلاء")]
     public Slider humiditySlider;
     public TextMeshProUGUI humidityValueText;
 
     // ============== Canvas ==============
     [Header("Canvas Sliders")]
-    [Tooltip("زاوية ميل اللوحة 0–90° — انزلاق الطلاء")]
     public Slider tiltSlider;
     public TextMeshProUGUI tiltValueText;
 
     // ============== Dropdowns ==============
     [Header("Dropdowns")]
     public TMP_Dropdown colorDropdown;
-    [Tooltip("نوع سطح اللوحة: Canvas / Wood / Metal / Paper")]
     public TMP_Dropdown surfaceTypeDropdown;
 
     // ============== Buttons ==============
     [Header("Buttons")]
     public Button restartButton;
 
-    // ============== Color palette ==============
+    // ============== Color Palette ==============
     private static readonly Color[] PaintColors =
     {
         Color.red,
@@ -71,7 +81,7 @@ public class SimulationUIManager : MonoBehaviour
         Color.white,
     };
 
-    // ============== Function ==============
+    // ============================================================
     void Start()
     {
         InitSliderValues();
@@ -79,19 +89,24 @@ public class SimulationUIManager : MonoBehaviour
         UpdateLabels();
     }
 
-    // ======= Initialise slider values from engine defaults =======
+    // ============== Init Values ==============
     void InitSliderValues()
     {
         if (pendulumEngine != null)
         {
             SetSlider(lengthSlider, pendulumEngine.L0);
             SetSlider(elasticitySlider, pendulumEngine.k_rope);
+            SetSlider(ropeDampingSlider, pendulumEngine.c_rope);
             SetSlider(airResistanceSlider, pendulumEngine.b);
             SetSlider(gravitySlider, pendulumEngine.g);
+            SetSlider(initialAngleSlider, pendulumEngine.initialTheta);
+            SetSlider(initialOmegaSlider, pendulumEngine.initialOmega);
         }
         if (fluidEngine != null)
         {
             SetSlider(orificeSlider, fluidEngine.orificeDiameter);
+            SetSlider(viscositySlider, fluidEngine.viscosity);
+            SetSlider(paintAmountSlider, fluidEngine.initialVolume * 1000f);
             SetSlider(windSpeedSlider, fluidEngine.windSpeed);
             SetSlider(temperatureSlider, fluidEngine.temperature);
             SetSlider(humiditySlider, fluidEngine.humidity * 100f);
@@ -105,19 +120,24 @@ public class SimulationUIManager : MonoBehaviour
     static void SetSlider(Slider s, float val)
     { if (s != null) s.value = val; }
 
-    // ============== Bind all listeners ==============
+    // ============== Bind Listeners ==============
     void BindListeners()
     {
         // Pendulum
         Bind(lengthSlider, v => { if (pendulumEngine) pendulumEngine.L0 = v; });
         Bind(elasticitySlider, v => { if (pendulumEngine) pendulumEngine.k_rope = v; });
+        Bind(ropeDampingSlider, v => { if (pendulumEngine) pendulumEngine.c_rope = v; });
         Bind(airResistanceSlider, v => { if (pendulumEngine) pendulumEngine.b = v; });
         Bind(gravitySlider, v => { if (pendulumEngine) pendulumEngine.g = v; });
+        Bind(initialAngleSlider, v => { if (pendulumEngine) pendulumEngine.initialTheta = v; });
+        Bind(initialOmegaSlider, v => { if (pendulumEngine) pendulumEngine.initialOmega = v; });
 
         // Fluid
         Bind(orificeSlider, v => { if (fluidEngine) fluidEngine.orificeDiameter = v; });
+        Bind(viscositySlider, v => { if (fluidEngine) fluidEngine.viscosity = v; });
+        Bind(paintAmountSlider, v => { if (fluidEngine) fluidEngine.initialVolume = v / 1000f; });
 
-        // Environment — synced to BOTH pendulum wind AND fluid wind
+        // Environment — synced to pendulum AND fluid
         Bind(windSpeedSlider, v =>
         {
             if (fluidEngine) fluidEngine.windSpeed = v;
@@ -137,14 +157,13 @@ public class SimulationUIManager : MonoBehaviour
         if (restartButton != null) restartButton.onClick.AddListener(RestartScene);
     }
 
-    // Helper — bind slider + label refresh
     void Bind(Slider s, System.Action<float> action)
     {
         if (s == null) return;
         s.onValueChanged.AddListener(v => { action(v); UpdateLabels(); });
     }
 
-    // ============== Colour dropdown ==============
+    // ============== Dropdowns ==============
     void ApplyColor(int index)
     {
         if (fluidEngine == null) return;
@@ -152,22 +171,25 @@ public class SimulationUIManager : MonoBehaviour
             index < PaintColors.Length ? PaintColors[index] : Color.red);
     }
 
-    // ============== Surface type dropdown ==============
     void ApplySurface(int index)
     {
         if (canvasEngine == null) return;
-        canvasEngine.surfaceType = (PaintSurfaceCanvas.SurfaceType)
-            Mathf.Clamp(index, 0, 3);
+        canvasEngine.surfaceType = (PaintSurfaceCanvas.SurfaceType)Mathf.Clamp(index, 0, 3);
     }
 
-    // ============== Label update ==============
+    // ============== Labels ==============
     void UpdateLabels()
     {
         SetLabel(lengthValueText, lengthSlider, v => $"{v:F2} m");
         SetLabel(elasticityValueText, elasticitySlider, v => $"{v:F0} N/m");
+        SetLabel(ropeDampingValueText, ropeDampingSlider, v => $"{v:F1}");
         SetLabel(airResistanceValueText, airResistanceSlider, v => $"{v:F3}");
         SetLabel(gravityValueText, gravitySlider, v => $"{v:F2} m/s²");
+        SetLabel(initialAngleValueText, initialAngleSlider, v => $"{v:F0}°");
+        SetLabel(initialOmegaValueText, initialOmegaSlider, v => $"{v:F2} rad/s");
         SetLabel(orificeValueText, orificeSlider, v => $"{v * 1000f:F1} mm");
+        SetLabel(viscosityValueText, viscositySlider, v => $"{v:F3}");
+        SetLabel(paintAmountValueText, paintAmountSlider, v => $"{v:F1} L");
         SetLabel(windSpeedValueText, windSpeedSlider, v => $"{v:F1} m/s");
         SetLabel(temperatureValueText, temperatureSlider, v => $"{v:F0} °C");
         SetLabel(humidityValueText, humiditySlider, v => $"{v:F0} %");
@@ -184,7 +206,7 @@ public class SimulationUIManager : MonoBehaviour
     // ============== Restart ==============
     void RestartScene()
     {
-        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
+        UnityEngine.SceneManagement.SceneManager.LoadScene(
+            UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
     }
 }

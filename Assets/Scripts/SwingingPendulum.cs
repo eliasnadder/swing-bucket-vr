@@ -9,6 +9,7 @@ public class SwingingPendulum : MonoBehaviour
     public float g = 9.81f;
     public float b = 0.1f;
     public float k_rope = 500f;
+    public float c_rope = 10f;
 
     [Header("Wind Parameters (Section 2.7.3)")]
     public float windSpeed = 0f;
@@ -16,7 +17,9 @@ public class SwingingPendulum : MonoBehaviour
     public float windCoeff = 0.5f;          // cw — معامل تأثير الرياح
 
     // المتغيرات الحركية للبندول ثلاثي الأبعاد
+    public float initialTheta = 45f;
     private float theta = 45f * Mathf.Deg2Rad;
+    public float initialOmega = 0f;
     private float omega_theta = 0f;
     // private float phi = 0f * Mathf.Deg2Rad;
     private float phi = 0f;
@@ -34,6 +37,8 @@ public class SwingingPendulum : MonoBehaviour
     {
         currentLength = L0;
         currentMass = m0;
+        theta = initialTheta * Mathf.Deg2Rad;
+        omega_theta = initialOmega;
         if (pivotPoint == null) pivotPoint = transform;
     }
 
