@@ -27,7 +27,7 @@ public class CanvasExporter : MonoBehaviour
 
         // 1. Grab the active runtime texture from our canvas script
         // We look for the main texture on the renderer assigned to your canvas
-        Texture2D structuralTexture = canvasTarget.canvasRenderer.material.mainTexture as Texture2D;
+        Texture2D structuralTexture = canvasTarget.GetPaintTexture();
 
         if (structuralTexture == null)
         {
@@ -39,6 +39,7 @@ public class CanvasExporter : MonoBehaviour
         Color[] pixelBuffer = structuralTexture.GetPixels();
 
         // Create a temporary clone texture to safely encode to PNG format without pipeline compression conflicts
+        // نسخ مؤقت للترميز بدون التأثير على الـ texture الأصلية
         Texture2D exportTexture = new Texture2D(structuralTexture.width, structuralTexture.height, TextureFormat.RGBA32, false);
         exportTexture.SetPixels(pixelBuffer);
         exportTexture.Apply();

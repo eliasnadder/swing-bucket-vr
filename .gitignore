@@ -42,6 +42,7 @@
 
 # Visual Studio cache directory
 .vs/
+.codegraph/
 
 # Gradle cache directory
 .gradle/
