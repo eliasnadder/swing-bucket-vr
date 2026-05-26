@@ -26,7 +26,7 @@ public class FluidSPHSystem : MonoBehaviour
     public float h_kernel = 0.2f;
 
     [Header("Environment (Section 2.7)")]
-    [Tooltip("درجة الحرارة بالسيليزيوس — تؤثر على اللزوجة عبر نموذج أرينيوس")]
+    [Tooltip("درجة الحرارة بالسيليزيوس")]
     public float temperature = 25f;
     [Tooltip("الرطوبة النسبية (0–1)")]
     [Range(0f, 1f)] public float humidity = 0.5f;
@@ -38,7 +38,6 @@ public class FluidSPHSystem : MonoBehaviour
     [Header("Color")]
     public Color currentPaintColor = Color.red;
 
-    // ── Private state ──
     private List<SPHParticle> particles = new List<SPHParticle>();
     public float initialVolume = 0.01f;
     private float currentVolume;
@@ -49,9 +48,7 @@ public class FluidSPHSystem : MonoBehaviour
     private const float K_TEMP = 0.03f;
     private const float BETA_H = 0.5f;
 
-    // ── Public properties ──
-    public float EffectiveViscosity =>
-        viscosity * Mathf.Exp(K_TEMP * (T_REF - temperature));
+    public float EffectiveViscosity => viscosity * Mathf.Exp(K_TEMP * (T_REF - temperature));
     public float HumiditySpreadFactor => 1f + BETA_H * humidity;
     public int ActiveParticleCount => particles.Count;
     public float CurrentFlowRate { get; private set; }
@@ -63,40 +60,56 @@ public class FluidSPHSystem : MonoBehaviour
         currentVolume = initialVolume;
         initialPaintHeight = h_paint;
         poly6Norm = 315f / (64f * Mathf.PI * Mathf.Pow(h_kernel, 9f));
-        if (pendulum == null) pendulum = GetComponent<SwingingCoupledSpringPendulum>();
+
+        // ── FIX: بحث تلقائي عن البندول إذا لم يُعيَّن ──
+        if (pendulum == null)
+            pendulum = GetComponent<SwingingCoupledSpringPendulum>();
+        if (pendulum == null)
+            pendulum = FindObjectOfType<SwingingCoupledSpringPendulum>();
+
+        if (pendulum == null)
+            Debug.LogError("[FluidSPHSystem] لم يُعثر على SwingingCoupledSpringPendulum! تأكد من تعيينه في Inspector.");
     }
 
     public void ChangePaintColor(Color c) => currentPaintColor = c;
 
     void FixedUpdate()
     {
+        // ── FIX: حماية من NullReference ──
+        if (pendulum == null) { CurrentFlowRate = 0f; return; }
         if (currentVolume <= 0f) { CurrentFlowRate = 0f; return; }
 
         float dt = Time.fixedDeltaTime;
         float area = Mathf.PI * Mathf.Pow(orificeDiameter * 0.5f, 2f);
-        float geff = Mathf.Max(0.01f, pendulum.EffectiveGravity); // ← لا يصير صفر
 
-        // ── حماية h_paint من السلبية ──
+        // ── FIX: قيمة دنيا أعلى لـ geff لضمان تدفق مرئي ──
+        float geff = Mathf.Max(1f, pendulum.EffectiveGravity);
+
         float safeH = Mathf.Max(0f, h_paint);
         float v_out = Mathf.Sqrt(2f * geff * safeH);
         float Q = Cd * area * v_out;
         CurrentFlowRate = Q;
 
-        // ── volumeToEmit لا يتجاوز ما تبقى ──
         float volumeToEmit = Mathf.Min(Q * dt, currentVolume);
         currentVolume -= volumeToEmit;
         pendulum.UpdateBucketMass(volumeToEmit * paintDensity0);
 
-        // ── h_paint محمي من السلبية ──
         h_paint = Mathf.Max(0f, (currentVolume / initialVolume) * initialPaintHeight);
 
-        // توليد الجسيمات
-        int spawnCount = Mathf.RoundToInt(Q * 10000f * dt);
+        // ── FIX: معدل توليد أكثر استقراراً ──
+        int spawnCount = Mathf.Max(0, Mathf.RoundToInt(Q * 10000f * dt));
+        // تحديد سقف للجسيمات لمنع تدهور الأداء
+        spawnCount = Mathf.Min(spawnCount, 20);
+
         for (int i = 0; i < spawnCount; i++)
         {
             SPHParticle p = new SPHParticle();
-            // ── الجسيمات تخرج من موضع الدلو لا من SimulationManager ──
             p.position = pendulum.transform.position;
+            // ── FIX: إضافة تشتت صغير لتجنب تراكب الجسيمات ──
+            p.position += new Vector3(
+                Random.Range(-0.02f, 0.02f),
+                0f,
+                Random.Range(-0.02f, 0.02f));
             p.velocity = pendulum.BucketVelocity + Vector3.down * v_out;
             p.color = currentPaintColor;
             p.density = paintDensity0;
@@ -149,6 +162,13 @@ public class FluidSPHSystem : MonoBehaviour
             p.velocity += accel * dt;
             p.position += p.velocity * dt;
             particles[i] = p;
+
+            // ── FIX: حذف الجسيمات التي تسقط كثيراً لمنع التراكم اللانهائي ──
+            if (p.position.y < -50f)
+            {
+                particles.RemoveAt(i);
+                continue;
+            }
 
             if (PaintSurfaceCanvas.Instance != null &&
                 PaintSurfaceCanvas.Instance.CheckCollision(p.position))

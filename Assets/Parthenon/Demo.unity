@@ -2097,6 +2097,7 @@ GameObject:
   - component: {fileID: 268129419}
   - component: {fileID: 268129423}
   - component: {fileID: 268129422}
+  - component: {fileID: 268129424}
   m_Layer: 0
   m_Name: Bucket
   m_TagString: Untagged
@@ -2255,7 +2256,7 @@ LineRenderer:
   - {x: 0, y: 0, z: 1}
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.04
+    widthMultiplier: 0.1
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -2311,6 +2312,24 @@ LineRenderer:
   m_UseWorldSpace: 1
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
+--- !u!114 &268129424
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 268129417}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f96bbce74e08b7e989924206b084dfb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BucketBuilder
+  fluidSystem: {fileID: 0}
+  bottomRadius: 0.18
+  topRadius: 0.22
+  bucketHeight: 0.4
+  wallThickness: 0.015
+  maxPaintHeight: 0.3
 --- !u!1 &289119969
 GameObject:
   m_ObjectHideFlags: 0

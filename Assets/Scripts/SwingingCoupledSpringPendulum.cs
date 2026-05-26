@@ -7,46 +7,42 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public Transform pivotPoint;
     private LineRenderer ropeRenderer;
 
-    [Header("Pendulum Parameters (Table 3.1.1)")]
+    [Header("Pendulum Parameters")]
     public float L0 = 5f;
     public float m0 = 2f;
     public float g = 9.81f;
     public float b = 0.1f;
 
-    [Header("Spring-Damper Rope (Section 2.3.3)")]
-    public float k_rope = 500f;
-    public float c_rope = 10f;
+    [Header("Spring-Damper Rope")]
+    public float k_rope = 50f;   // ← خُفِّض من 500 → 50 لمنع تيبّس الربيع
+    public float c_rope = 5f;    // ← خُفِّض من 10  → 5
 
-    [Header("Wind Parameters (Section 2.7.3)")]
+    [Header("Wind Parameters")]
     public float windSpeed = 0f;
     public Vector3 windDirection = Vector3.right;
     public float windCoeff = 0.5f;
 
     [Header("Initial State")]
-    public float initialTheta = 45f;
-    public float initialOmega = 0f;   // rad/s
+    public float initialTheta = 30f;   // ← خُفِّض من 45 → 30 للاستقرار
+    public float initialOmega = 0f;
     public float initialPhi = 0f;
 
     // حالة النظام
     private float theta, omega_theta, phi, omega_phi;
     private float currentLength, ropeVelocity, currentMass;
+    private Vector3 previousPosition;
+    private bool firstFrame = true;
 
-    // خصائص متاحة للأنظمة الأخرى
+    // خصائص عامة
     public Vector3 BucketVelocity { get; private set; }
     public float EffectiveGravity { get; private set; }
     public float AngularAccelerationTheta { get; private set; }
     public Vector3 DailVelocity => BucketVelocity;
 
-    // ── State struct ──
-    private struct State
-    {
-        public float t, o_t, p, o_p, L, dL;
-    }
-    private struct Derivs
-    {
-        public float d_t, d_ot, d_p, d_op, d_L, d_dL;
-    }
+    private struct State { public float t, o_t, p, o_p, L, dL; }
+    private struct Derivs { public float d_t, d_ot, d_p, d_op, d_L, d_dL; }
 
+    // ─────────────────────────────────────────
     void Start()
     {
         currentMass = m0;
@@ -54,19 +50,44 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         ropeVelocity = 0f;
 
         theta = initialTheta * Mathf.Deg2Rad;
-        // initialOmega هو بالفعل rad/s — لا نضرب Deg2Rad مرة ثانية
         omega_theta = initialOmega;
         phi = initialPhi * Mathf.Deg2Rad;
         omega_phi = 0f;
 
+        // ── أنشئ Pivot بحيث يكون السطل في موضعه الحالي في المشهد ──
         if (pivotPoint == null)
         {
             var go = new GameObject("Auto_Pivot");
-            go.transform.position = transform.position + Vector3.up * L0;
+            Vector3 offset = SphericalToCartesian(L0, theta, phi);
+            go.transform.position = transform.position - offset;
             pivotPoint = go.transform;
         }
+        else
+        {
+            // إذا كان pivotPoint مُعيَّناً في Inspector، احسب الموضع الأولي
+            // من موضع السطل الحالي في المشهد بدلاً من إعادة حسابه من الزاوية
+            // هذا يمنع قفز السطل عند بدء التشغيل
+            Vector3 offset = SphericalToCartesian(L0, theta, phi);
+            pivotPoint.position = transform.position - offset;
+        }
+
+        // ضع السطل عند الموضع الصحيح فوراً
+        transform.position = pivotPoint.position + SphericalToCartesian(currentLength, theta, phi);
+
+        previousPosition = transform.position;
+        BucketVelocity = Vector3.zero;
+        EffectiveGravity = g;
 
         SetupLineRenderer();
+    }
+
+    // إحداثيات كروية → ديكارتية (y يشير للأسفل)
+    static Vector3 SphericalToCartesian(float L, float t, float p)
+    {
+        return new Vector3(
+             L * Mathf.Sin(t) * Mathf.Cos(p),
+            -L * Mathf.Cos(t),
+             L * Mathf.Sin(t) * Mathf.Sin(p));
     }
 
     void SetupLineRenderer()
@@ -75,17 +96,15 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         ropeRenderer.positionCount = 2;
         ropeRenderer.startWidth = 0.04f;
         ropeRenderer.endWidth = 0.04f;
-        if (ropeRenderer.sharedMaterial == null)
-        {
-            ropeRenderer.material = new Material(Shader.Find("Sprites/Default"));
-            ropeRenderer.startColor = Color.gray;
-            ropeRenderer.endColor = Color.black;
-        }
+        ropeRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        ropeRenderer.startColor = Color.gray;
+        ropeRenderer.endColor = Color.black;
     }
 
     Vector3 GetWindForce() =>
         windDirection.normalized * windCoeff * windSpeed * windSpeed;
 
+    // ─── مشتقات RK4 ───
     Derivs CalculateDerivatives(State s)
     {
         Derivs d;
@@ -93,53 +112,47 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         d.d_p = s.o_p;
         d.d_L = s.dL;
 
-        Vector3 Fw = GetWindForce();
-
-        // متجهات الإحداثيات الكروية
-        Vector3 r_hat = new Vector3(
-             Mathf.Sin(s.t) * Mathf.Cos(s.p),
-            -Mathf.Cos(s.t),
-             Mathf.Sin(s.t) * Mathf.Sin(s.p));
-
-        Vector3 theta_hat = new Vector3(
-             Mathf.Cos(s.t) * Mathf.Cos(s.p),
-             Mathf.Sin(s.t),                    // ← ملاحظة: +sin في الاتجاه الشعاعي الكروي
-             Mathf.Cos(s.t) * Mathf.Sin(s.p));
-
-        Vector3 phi_hat = new Vector3(-Mathf.Sin(s.p), 0f, Mathf.Cos(s.p));
-
-        float cosT = Mathf.Cos(s.t);
+        // ── حماية L و sinT من الصفر / NaN ──
+        float safeL = Mathf.Max(s.L, 0.1f);
         float sinT = Mathf.Sin(s.t);
-
-        // حماية القسمة على sinT دون كسر الإشارة السالبة
-        // نستخدم sinT المطلق فقط في المقامات، ليس في الحسابات الأخرى
+        float cosT = Mathf.Cos(s.t);
         float sinT_safe = Mathf.Max(Mathf.Abs(sinT), 0.001f);
 
-        float Fw_r = Vector3.Dot(Fw, r_hat);
+        Vector3 Fw = GetWindForce();
+        Vector3 theta_hat = new Vector3(cosT * Mathf.Cos(s.p), sinT, cosT * Mathf.Sin(s.p));
+        Vector3 phi_hat = new Vector3(-Mathf.Sin(s.p), 0f, Mathf.Cos(s.p));
+        Vector3 r_hat = new Vector3(sinT * Mathf.Cos(s.p), -cosT, sinT * Mathf.Sin(s.p));
+
         float Fw_theta = Vector3.Dot(Fw, theta_hat);
         float Fw_phi = Vector3.Dot(Fw, phi_hat);
+        float Fw_r = Vector3.Dot(Fw, r_hat);
 
-        // معادلات الحركة المقترنة (Section 2.3.4)
+        // معادلة θ
         d.d_ot = sinT * cosT * s.o_p * s.o_p
-                 - (g / s.L) * sinT
-                 - 2f * (s.dL / s.L) * s.o_t
-                 - (b / currentMass) * s.o_t
-                 + (Fw_theta / (currentMass * s.L));
+               - (g / safeL) * sinT
+               - 2f * (s.dL / safeL) * s.o_t
+               - (b / currentMass) * s.o_t
+               + Fw_theta / (currentMass * safeL);
 
-        d.d_op = -2f * (s.dL / s.L) * s.o_p
-                 - 2f * (cosT / sinT_safe) * s.o_t * s.o_p
-                 - (b / currentMass) * s.o_p
-                 + (Fw_phi / (currentMass * s.L * sinT_safe));
+        // معادلة φ
+        d.d_op = -2f * (s.dL / safeL) * s.o_p
+               - 2f * (cosT / sinT_safe) * s.o_t * s.o_p
+               - (b / currentMass) * s.o_p
+               + Fw_phi / (currentMass * safeL * sinT_safe);
 
-        // Spring-Damper (Section 2.3.3)
-        float F_centrifugal = currentMass * s.L
-                            * (s.o_t * s.o_t + sinT * sinT * s.o_p * s.o_p);
-        float F_gravity_rad = currentMass * g * cosT;
+        // معادلة الطول (Spring-Damper)
+        float F_cf = currentMass * safeL * (s.o_t * s.o_t + sinT * sinT * s.o_p * s.o_p);
+        float F_grav_r = currentMass * g * cosT;
         float F_spring = -k_rope * (s.L - L0);
-        float F_damper = -c_rope * s.dL;
+        float F_damp = -c_rope * s.dL;
 
-        d.d_dL = (F_gravity_rad + F_centrifugal + F_spring + F_damper + Fw_r)
-                 / currentMass;
+        d.d_dL = (F_grav_r + F_cf + F_spring + F_damp + Fw_r) / currentMass;
+
+        // ── إيقاف الانفجار العددي ──
+        const float CLAMP = 1000f;
+        d.d_ot = Mathf.Clamp(d.d_ot, -CLAMP, CLAMP);
+        d.d_op = Mathf.Clamp(d.d_op, -CLAMP, CLAMP);
+        d.d_dL = Mathf.Clamp(d.d_dL, -CLAMP, CLAMP);
 
         return d;
     }
@@ -149,71 +162,74 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         float dt = Time.fixedDeltaTime;
 
         State s = new State
-        {
-            t = theta,
-            o_t = omega_theta,
-            p = phi,
-            o_p = omega_phi,
-            L = currentLength,
-            dL = ropeVelocity
-        };
+        { t = theta, o_t = omega_theta, p = phi, o_p = omega_phi, L = currentLength, dL = ropeVelocity };
 
-        // ── RK4 الكامل على كل المتغيرات ──
+        // RK4
         Derivs d1 = CalculateDerivatives(s);
         Derivs d2 = CalculateDerivatives(Step(s, d1, dt * 0.5f));
         Derivs d3 = CalculateDerivatives(Step(s, d2, dt * 0.5f));
         Derivs d4 = CalculateDerivatives(Step(s, d3, dt));
 
-        theta += (dt / 6f) * (d1.d_t + 2f * d2.d_t + 2f * d3.d_t + d4.d_t);
-        omega_theta += (dt / 6f) * (d1.d_ot + 2f * d2.d_ot + 2f * d3.d_ot + d4.d_ot);
-        phi += (dt / 6f) * (d1.d_p + 2f * d2.d_p + 2f * d3.d_p + d4.d_p);
-        omega_phi += (dt / 6f) * (d1.d_op + 2f * d2.d_op + 2f * d3.d_op + d4.d_op);
+        theta += (dt / 6f) * (d1.d_t + 2 * d2.d_t + 2 * d3.d_t + d4.d_t);
+        omega_theta += (dt / 6f) * (d1.d_ot + 2 * d2.d_ot + 2 * d3.d_ot + d4.d_ot);
+        phi += (dt / 6f) * (d1.d_p + 2 * d2.d_p + 2 * d3.d_p + d4.d_p);
+        omega_phi += (dt / 6f) * (d1.d_op + 2 * d2.d_op + 2 * d3.d_op + d4.d_op);
+        currentLength += (dt / 6f) * (d1.d_L + 2 * d2.d_L + 2 * d3.d_L + d4.d_L);
+        ropeVelocity += (dt / 6f) * (d1.d_dL + 2 * d2.d_dL + 2 * d3.d_dL + d4.d_dL);
 
-        currentLength += (dt / 6f) * (d1.d_L + 2f * d2.d_L + 2f * d3.d_L + d4.d_L);
-        ropeVelocity += (dt / 6f) * (d1.d_dL + 2f * d2.d_dL + 2f * d3.d_dL + d4.d_dL);
+        // ── حماية: إعادة ضبط إذا ظهر NaN ──
+        if (float.IsNaN(theta) || float.IsNaN(phi) || float.IsNaN(currentLength))
+        {
+            Debug.LogWarning("[Pendulum] NaN detected — resetting state");
+            theta = initialTheta * Mathf.Deg2Rad;
+            omega_theta = 0f;
+            phi = 0f;
+            omega_phi = 0f;
+            currentLength = L0;
+            ropeVelocity = 0f;
+        }
 
-        // حد أدنى وأقصى للطول
-        currentLength = Mathf.Clamp(currentLength, L0 * 0.2f, L0 * 3f);
+        currentLength = Mathf.Clamp(currentLength, L0 * 0.5f, L0 * 2f);
 
         AngularAccelerationTheta =
-            (d1.d_ot + 2f * d2.d_ot + 2f * d3.d_ot + d4.d_ot) / 6f;
+            (d1.d_ot + 2 * d2.d_ot + 2 * d3.d_ot + d4.d_ot) / 6f;
 
-        // الجاذبية الفعالة
-        float omega_total = Mathf.Sqrt(omega_theta * omega_theta + omega_phi * omega_phi);
-        float a_c = omega_total * omega_total * currentLength;
-        float a_t = AngularAccelerationTheta * currentLength;
-        EffectiveGravity = Mathf.Sqrt(
-            Mathf.Pow(g + a_c * Mathf.Cos(theta), 2) +
-            Mathf.Pow(a_t * Mathf.Sin(theta), 2));
+        float omega_tot = Mathf.Sqrt(omega_theta * omega_theta + omega_phi * omega_phi);
+        EffectiveGravity = Mathf.Max(g * 0.5f,
+            Mathf.Sqrt(
+                Mathf.Pow(g + omega_tot * omega_tot * currentLength * Mathf.Cos(theta), 2) +
+                Mathf.Pow(AngularAccelerationTheta * currentLength * Mathf.Sin(theta), 2)));
 
         // تحديث الموضع
-        Vector3 prev = transform.position;
-        transform.position = new Vector3(
-            pivotPoint.position.x + currentLength * Mathf.Sin(theta) * Mathf.Cos(phi),
-            pivotPoint.position.y - currentLength * Mathf.Cos(theta),
-            pivotPoint.position.z + currentLength * Mathf.Sin(theta) * Mathf.Sin(phi));
+        Vector3 newPos = pivotPoint.position + SphericalToCartesian(currentLength, theta, phi);
 
-        BucketVelocity = (transform.position - prev) / dt;
+        // ── حماية أخيرة: لا تُطبق إذا كان NaN ──
+        if (!float.IsNaN(newPos.x) && !float.IsNaN(newPos.y) && !float.IsNaN(newPos.z))
+            transform.position = newPos;
+
+        BucketVelocity = firstFrame
+            ? Vector3.zero
+            : (transform.position - previousPosition) / dt;
+
+        previousPosition = transform.position;
+        firstFrame = false;
+
         UpdateRopeVisuals();
     }
 
-    // Helper: خطوة Euler لتوليد حالة وسيطة لـ RK4
-    static State Step(State s, Derivs d, float h)
+    static State Step(State s, Derivs d, float h) => new State
     {
-        return new State
-        {
-            t = s.t + h * d.d_t,
-            o_t = s.o_t + h * d.d_ot,
-            p = s.p + h * d.d_p,
-            o_p = s.o_p + h * d.d_op,
-            L = s.L + h * d.d_L,
-            dL = s.dL + h * d.d_dL
-        };
-    }
+        t = s.t + h * d.d_t,
+        o_t = s.o_t + h * d.d_ot,
+        p = s.p + h * d.d_p,
+        o_p = s.o_p + h * d.d_op,
+        L = Mathf.Max(s.L + h * d.d_L, 0.1f),   // ← لا يصبح صفر
+        dL = s.dL + h * d.d_dL
+    };
 
     void UpdateRopeVisuals()
     {
-        if (ropeRenderer != null && pivotPoint != null)
+        if (ropeRenderer && pivotPoint)
         {
             ropeRenderer.SetPosition(0, pivotPoint.position);
             ropeRenderer.SetPosition(1, transform.position);
