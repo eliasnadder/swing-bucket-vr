@@ -65,7 +65,7 @@ public class FluidSPHSystem : MonoBehaviour
         if (pendulum == null)
             pendulum = GetComponent<SwingingCoupledSpringPendulum>();
         if (pendulum == null)
-            pendulum = FindObjectOfType<SwingingCoupledSpringPendulum>();
+            pendulum = FindAnyObjectByType<SwingingCoupledSpringPendulum>();
 
         if (pendulum == null)
             Debug.LogError("[FluidSPHSystem] لم يُعثر على SwingingCoupledSpringPendulum! تأكد من تعيينه في Inspector.");

@@ -1,86 +1,122 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Procedurally builds a bucket from Unity primitives at runtime and
-/// animates the paint surface level based on FluidSPHSystem.
-///
-/// Usage:
-///   1. Attach this script to the same GameObject that has
-///      SwingingCoupledSpringPendulum (i.e. the "bucket" object).
-///   2. Assign fluidSystem in the Inspector (or it will be found automatically).
-///   3. Press Play — the bucket is built automatically.
+/// Builds a more realistic tapered bucket and a visible liquid volume.
+/// The paint is no longer a flat disc; it is rendered as a fill volume
+/// that rises and shrinks with FluidSPHSystem.h_paint.
 /// </summary>
 [RequireComponent(typeof(SwingingCoupledSpringPendulum))]
 public class BucketBuilder : MonoBehaviour
 {
     [Header("References")]
     public FluidSPHSystem fluidSystem;
+    [Tooltip("Optional imported bucket prefab/FBX. If assigned, this model is used instead of the procedural shell.")]
+    public GameObject bucketModelPrefab;
+    [Tooltip("Local position offset for the imported model.")]
+    public Vector3 bucketModelLocalPosition = Vector3.zero;
+    [Tooltip("Local rotation offset for the imported model.")]
+    public Vector3 bucketModelLocalEulerAngles = Vector3.zero;
+    [Tooltip("Local scale multiplier for the imported model.")]
+    public Vector3 bucketModelLocalScale = Vector3.one;
 
     [Header("Bucket Dimensions")]
     [Tooltip("Radius at the bottom of the bucket")]
     public float bottomRadius = 0.18f;
     [Tooltip("Radius at the top of the bucket")]
-    public float topRadius    = 0.22f;
+    public float topRadius = 0.22f;
     [Tooltip("Height of the bucket body")]
     public float bucketHeight = 0.40f;
-    [Tooltip("Thickness of the wall/rim (visual only)")]
+    [Tooltip("Thickness of the wall/rim")]
     public float wallThickness = 0.015f;
 
     [Header("Paint")]
-    [Tooltip("Max paint height in FluidSPHSystem (should match initialVolume-derived h_paint)")]
+    [Tooltip("Max paint height in FluidSPHSystem")]
     public float maxPaintHeight = 0.30f;
 
-    // ── runtime refs ──
-    private Transform paintSurface;
-    private Renderer  paintRenderer;
-    private float     paintFullLocalY;
-    private float     paintEmptyLocalY;
+    [Header("Mesh Quality")]
+    [Range(12, 64)]
+    public int radialSegments = 28;
 
-    // ── materials ──
     private Material metalMat;
+    private Material innerMat;
     private Material paintMat;
+    private GameObject bucketModelInstance;
+    private bool usingRootMesh;
+    private Bounds bucketVisualBoundsLocal;
+    private bool hasBucketVisualBounds;
 
-    // ─────────────────────────────────────────────────────────────
+    private MeshFilter outerFilter;
+    private MeshFilter innerFilter;
+    private MeshFilter bottomFilter;
+    private MeshFilter rimFilter;
+    private MeshFilter liquidFilter;
+    private Transform paintSpawnPoint;
+
+    private Renderer paintRenderer;
+    private float liquidBottomLocalY;
+    private float liquidTopLocalY;
+    private float lastFillT = -1f;
+    private Color lastPaintColor = Color.clear;
+
     void Start()
     {
         if (fluidSystem == null)
-            fluidSystem = FindObjectOfType<FluidSPHSystem>();
+            fluidSystem = FindAnyObjectByType<FluidSPHSystem>();
+
+        var existingFilter = GetComponent<MeshFilter>();
+        var existingRenderer = GetComponent<MeshRenderer>();
+        usingRootMesh = bucketModelPrefab == null &&
+                        existingFilter != null &&
+                        existingFilter.sharedMesh != null;
+
+        // Only hide the root mesh when we are replacing it with a prefab or
+        // procedural geometry. If the imported model is already on Bucket,
+        // keep it visible and use it as the bucket body.
+        if (!usingRootMesh)
+        {
+            if (existingFilter != null)
+                existingFilter.sharedMesh = null;
+
+            if (existingRenderer != null)
+                existingRenderer.enabled = false;
+        }
 
         BuildMaterials();
-        BuildBucket();
+        if (bucketModelPrefab != null)
+            BuildImportedBucket();
+        else if (usingRootMesh)
+        {
+            CaptureBucketVisualBounds(transform);
+            BuildImportedLiquidVolume();
+        }
+        else if (!usingRootMesh)
+            BuildBucket();
+        UpdateLiquidVisual(true);
     }
 
-    // ─────────────────────────────────────────────────────────────
     void Update()
     {
-        if (fluidSystem == null || paintSurface == null) return;
-
-        // Drive paint level
-        float t = Mathf.Clamp01(fluidSystem.h_paint / Mathf.Max(0.001f, maxPaintHeight));
-        Vector3 lp = paintSurface.localPosition;
-        lp.y = Mathf.Lerp(paintEmptyLocalY, paintFullLocalY, t);
-        paintSurface.localPosition = lp;
-
-        // Sync paint colour + alpha
-        Color c = fluidSystem.currentPaintColor;
-        c.a = 0.88f;
-        paintMat.color = c;
+        UpdateLiquidVisual(false);
     }
 
-    // ─────────────────────────────────────────────────────────────
     void BuildMaterials()
     {
-        // Metal — opaque, slightly reflective grey
-        metalMat = new Material(Shader.Find("Standard"));
-        metalMat.color = new Color(0.72f, 0.72f, 0.72f);
-        metalMat.SetFloat("_Metallic",   0.75f);
-        metalMat.SetFloat("_Glossiness", 0.55f);
+        Shader litShader = FindLitShader();
 
-        // Paint — transparent, glossy
-        paintMat = new Material(Shader.Find("Standard"));
-        paintMat.color = Color.red;
-        // Enable transparency
-        paintMat.SetFloat("_Mode", 3);                          // Transparent
+        metalMat = new Material(litShader);
+        metalMat.color = new Color(0.70f, 0.72f, 0.74f);
+        metalMat.SetFloat("_Metallic", 0.78f);
+        metalMat.SetFloat("_Glossiness", 0.58f);
+
+        innerMat = new Material(litShader);
+        innerMat.color = new Color(0.10f, 0.10f, 0.10f);
+        innerMat.SetFloat("_Metallic", 0.25f);
+        innerMat.SetFloat("_Glossiness", 0.20f);
+
+        paintMat = new Material(litShader);
+        paintMat.color = new Color(0.90f, 0.05f, 0.05f, 0.94f);
+        paintMat.SetFloat("_Mode", 3);
         paintMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
         paintMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
         paintMat.SetInt("_ZWrite", 0);
@@ -88,133 +124,441 @@ public class BucketBuilder : MonoBehaviour
         paintMat.EnableKeyword("_ALPHABLEND_ON");
         paintMat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
         paintMat.renderQueue = 3000;
-        paintMat.SetFloat("_Glossiness", 0.80f);
-        paintMat.SetFloat("_Metallic",   0.0f);
+        paintMat.SetFloat("_Glossiness", 0.72f);
+        paintMat.SetFloat("_Metallic", 0.0f);
     }
 
-    // ─────────────────────────────────────────────────────────────
     void BuildBucket()
     {
-        // ── 1. BODY ──────────────────────────────────────────────
-        // Unity cylinders can't be tapered, so we approximate with
-        // a cylinder whose radius is the average of top/bottom.
-        float avgRadius = (bottomRadius + topRadius) * 0.5f;
+        float innerBottomRadius = Mathf.Max(0.01f, bottomRadius);
+        float innerTopRadius = Mathf.Max(innerBottomRadius + 0.01f, topRadius);
+        float outerBottomRadius = innerBottomRadius + wallThickness;
+        float outerTopRadius = innerTopRadius + wallThickness;
 
-        GameObject body = CreateCylinder("BucketBody", metalMat);
-        body.transform.SetParent(transform, false);
-        body.transform.localPosition = Vector3.zero;
-        // Cylinder primitive has height 2 in local space → scale Y = height/2
-        body.transform.localScale = new Vector3(
-            avgRadius * 2f,
-            bucketHeight * 0.5f,
-            avgRadius * 2f);
+        outerFilter = CreateMeshChild(
+            "BucketOuter",
+            metalMat,
+            CreateFrustumWallMesh(outerBottomRadius, outerTopRadius, bucketHeight, radialSegments, false));
 
-        // ── 2. BOTTOM ────────────────────────────────────────────
-        GameObject bottom = CreateCylinder("BucketBottom", metalMat);
-        bottom.transform.SetParent(transform, false);
-        bottom.transform.localPosition = new Vector3(0f, -bucketHeight * 0.5f, 0f);
-        bottom.transform.localScale = new Vector3(
-            bottomRadius * 2f,
-            wallThickness,
-            bottomRadius * 2f);
+        innerFilter = CreateMeshChild(
+            "BucketInner",
+            innerMat,
+            CreateFrustumWallMesh(innerBottomRadius, innerTopRadius, bucketHeight, radialSegments, true));
 
-        // ── 3. RIM ───────────────────────────────────────────────
-        GameObject rim = CreateCylinder("BucketRim", metalMat);
-        rim.transform.SetParent(transform, false);
-        rim.transform.localPosition = new Vector3(0f, bucketHeight * 0.5f, 0f);
-        rim.transform.localScale = new Vector3(
-            (topRadius + wallThickness) * 2f,
-            wallThickness,
-            (topRadius + wallThickness) * 2f);
+        bottomFilter = CreateMeshChild(
+            "BucketBottom",
+            metalMat,
+            CreateDiscMesh(innerBottomRadius, radialSegments, true));
+        bottomFilter.transform.localPosition = new Vector3(0f, -bucketHeight * 0.5f + wallThickness * 0.5f, 0f);
 
-        // ── 4. HANDLE ────────────────────────────────────────────
-        // Two vertical posts + one arc approximated by a rotated capsule
+        rimFilter = CreateMeshChild(
+            "BucketRim",
+            metalMat,
+            CreateFrustumWallMesh(innerTopRadius, outerTopRadius + wallThickness * 0.25f, wallThickness * 1.35f, radialSegments, false));
+        rimFilter.transform.localPosition = new Vector3(0f, bucketHeight * 0.5f - wallThickness * 0.18f, 0f);
+
+        BuildHandle();
+        BuildOrifice();
+        hasBucketVisualBounds = false;
+        BuildLiquidVolume(innerBottomRadius, innerTopRadius);
+    }
+
+    void BuildHandle()
+    {
         float handleHeight = bucketHeight * 0.55f;
-        float handleSpan   = topRadius * 1.6f;
+        float handleSpan = topRadius * 1.6f;
 
-        // Left post
-        GameObject postL = CreateCapsule("HandlePostL", metalMat);
-        postL.transform.SetParent(transform, false);
-        postL.transform.localPosition = new Vector3(-topRadius * 0.85f,
-                                                     bucketHeight * 0.5f + handleHeight * 0.5f,
-                                                     0f);
-        postL.transform.localScale = new Vector3(wallThickness * 1.5f,
-                                                  handleHeight * 0.5f,
-                                                  wallThickness * 1.5f);
+        GameObject postL = CreatePrimitiveChild("HandlePostL", PrimitiveType.Capsule, metalMat);
+        postL.transform.localPosition = new Vector3(-topRadius * 0.85f, bucketHeight * 0.5f + handleHeight * 0.5f, 0f);
+        postL.transform.localScale = new Vector3(wallThickness * 1.5f, handleHeight * 0.5f, wallThickness * 1.5f);
 
-        // Right post
-        GameObject postR = CreateCapsule("HandlePostR", metalMat);
-        postR.transform.SetParent(transform, false);
-        postR.transform.localPosition = new Vector3( topRadius * 0.85f,
-                                                     bucketHeight * 0.5f + handleHeight * 0.5f,
-                                                     0f);
+        GameObject postR = CreatePrimitiveChild("HandlePostR", PrimitiveType.Capsule, metalMat);
+        postR.transform.localPosition = new Vector3(topRadius * 0.85f, bucketHeight * 0.5f + handleHeight * 0.5f, 0f);
         postR.transform.localScale = postL.transform.localScale;
 
-        // Arc (capsule rotated 90° on Z)
-        GameObject arc = CreateCapsule("HandleArc", metalMat);
-        arc.transform.SetParent(transform, false);
-        arc.transform.localPosition = new Vector3(0f,
-                                                   bucketHeight * 0.5f + handleHeight,
-                                                   0f);
+        GameObject arc = CreatePrimitiveChild("HandleArc", PrimitiveType.Capsule, metalMat);
+        arc.transform.localPosition = new Vector3(0f, bucketHeight * 0.5f + handleHeight, 0f);
         arc.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-        arc.transform.localScale = new Vector3(wallThickness * 1.5f,
-                                                handleSpan * 0.5f,
-                                                wallThickness * 1.5f);
+        arc.transform.localScale = new Vector3(wallThickness * 1.5f, handleSpan * 0.5f, wallThickness * 1.5f);
+    }
 
-        // ── 5. ORIFICE (drip hole) ────────────────────────────────
-        GameObject orifice = CreateCylinder("Orifice", MakeDarkMat());
-        orifice.transform.SetParent(transform, false);
+    void BuildOrifice()
+    {
+        GameObject orifice = CreatePrimitiveChild("Orifice", PrimitiveType.Cylinder, innerMat);
         orifice.transform.localPosition = new Vector3(0f, -bucketHeight * 0.5f - wallThickness * 1.1f, 0f);
         orifice.transform.localScale = new Vector3(
             fluidSystem != null ? fluidSystem.orificeDiameter : 0.05f,
             wallThickness * 0.5f,
             fluidSystem != null ? fluidSystem.orificeDiameter : 0.05f);
+        paintSpawnPoint = orifice.transform;
+    }
 
-        // ── 6. PAINT SURFACE ─────────────────────────────────────
-        GameObject paint = CreateCylinder("PaintSurface", paintMat);
+    void BuildLiquidVolume(float innerBottomRadius, float innerTopRadius)
+    {
+        GameObject paint = new GameObject("PaintVolume");
         paint.transform.SetParent(transform, false);
 
-        // Full = just below the rim; Empty = just above the bottom
-        paintFullLocalY  =  bucketHeight * 0.5f - wallThickness * 2f;
-        paintEmptyLocalY = -bucketHeight * 0.5f + wallThickness * 2f;
+        liquidFilter = paint.AddComponent<MeshFilter>();
+        paint.AddComponent<MeshRenderer>().sharedMaterial = paintMat;
 
-        paint.transform.localPosition = new Vector3(0f, paintFullLocalY, 0f);
-        paint.transform.localScale = new Vector3(
-            (avgRadius - wallThickness) * 2f,
-            wallThickness * 0.5f,
-            (avgRadius - wallThickness) * 2f);
+        liquidBottomLocalY = -bucketHeight * 0.5f + wallThickness * 0.7f;
+        liquidTopLocalY = bucketHeight * 0.5f - wallThickness * 2.0f;
+        liquidFilter.sharedMesh = CreateLiquidMesh(innerBottomRadius, innerTopRadius, liquidTopLocalY - liquidBottomLocalY, radialSegments);
+        paint.transform.localPosition = new Vector3(0f, liquidBottomLocalY, 0f);
 
-        paintSurface  = paint.transform;
         paintRenderer = paint.GetComponent<Renderer>();
-        paintRenderer.material = paintMat;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────
-    static GameObject CreateCylinder(string name, Material mat)
+    void CaptureBucketVisualBounds(Transform visualRoot)
     {
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        Renderer[] renderers = visualRoot.GetComponentsInChildren<Renderer>(true);
+        bool initialized = false;
+        Bounds localBounds = new Bounds();
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer is LineRenderer)
+                continue;
+
+            Bounds worldBounds = renderer.bounds;
+            foreach (Vector3 corner in GetBoundsCorners(worldBounds))
+            {
+                Vector3 localPoint = visualRoot.InverseTransformPoint(corner);
+                if (!initialized)
+                {
+                    localBounds = new Bounds(localPoint, Vector3.zero);
+                    initialized = true;
+                }
+                else
+                {
+                    localBounds.Encapsulate(localPoint);
+                }
+            }
+        }
+
+        hasBucketVisualBounds = initialized;
+        bucketVisualBoundsLocal = localBounds;
+    }
+
+    void BuildImportedBucket()
+    {
+        bucketModelInstance = Instantiate(bucketModelPrefab, transform);
+        bucketModelInstance.name = "BucketModel";
+        bucketModelInstance.transform.localPosition = bucketModelLocalPosition;
+        bucketModelInstance.transform.localRotation = Quaternion.Euler(bucketModelLocalEulerAngles);
+        bucketModelInstance.transform.localScale = bucketModelLocalScale;
+
+        CaptureBucketVisualBounds(bucketModelInstance.transform);
+        BuildImportedLiquidVolume();
+    }
+
+    void BuildImportedLiquidVolume()
+    {
+        if (!hasBucketVisualBounds)
+            return;
+
+        float modelRadius = Mathf.Max(bucketVisualBoundsLocal.extents.x, bucketVisualBoundsLocal.extents.z);
+        float innerBottomRadius = Mathf.Max(0.01f, modelRadius * 0.82f);
+        float innerTopRadius = Mathf.Max(innerBottomRadius + 0.01f, modelRadius * 0.95f);
+
+        liquidBottomLocalY = bucketVisualBoundsLocal.min.y + wallThickness * 0.6f;
+        liquidTopLocalY = bucketVisualBoundsLocal.max.y - wallThickness * 1.4f;
+        if (liquidTopLocalY <= liquidBottomLocalY)
+            liquidTopLocalY = liquidBottomLocalY + Mathf.Max(0.05f, bucketVisualBoundsLocal.size.y * 0.9f);
+
+        if (paintSpawnPoint == null)
+        {
+            GameObject spawn = new GameObject("PaintSpawnPoint");
+            spawn.transform.SetParent(transform, false);
+            spawn.transform.localPosition = new Vector3(0f, bucketVisualBoundsLocal.min.y + wallThickness * 0.5f, 0f);
+            paintSpawnPoint = spawn.transform;
+        }
+
+        BuildLiquidVolume(innerBottomRadius, innerTopRadius);
+    }
+
+    public Vector3 GetPaintSpawnPosition()
+    {
+        return paintSpawnPoint != null ? paintSpawnPoint.position : transform.position;
+    }
+
+    void UpdateLiquidVisual(bool force)
+    {
+        if (fluidSystem == null || liquidFilter == null || paintRenderer == null)
+            return;
+
+        float fillT = Mathf.Clamp01(fluidSystem.h_paint / Mathf.Max(0.001f, maxPaintHeight));
+        Color paintColor = fluidSystem.currentPaintColor;
+        paintColor.a = 0.94f;
+
+        if (!force &&
+            Mathf.Approximately(fillT, lastFillT) &&
+            paintColor == lastPaintColor)
+        {
+            return;
+        }
+
+        lastFillT = fillT;
+        lastPaintColor = paintColor;
+
+        float fillHeight = Mathf.Lerp(0.02f, liquidTopLocalY - liquidBottomLocalY, fillT);
+
+        float innerBottomRadius;
+        float innerTopRadius;
+        if (hasBucketVisualBounds)
+        {
+            float modelRadius = Mathf.Max(bucketVisualBoundsLocal.extents.x, bucketVisualBoundsLocal.extents.z);
+            innerBottomRadius = Mathf.Max(0.01f, modelRadius * 0.82f);
+            innerTopRadius = Mathf.Max(innerBottomRadius + 0.01f, modelRadius * 0.95f);
+        }
+        else
+        {
+            innerBottomRadius = Mathf.Max(0.01f, bottomRadius);
+            innerTopRadius = Mathf.Max(innerBottomRadius + 0.01f, topRadius);
+        }
+        float topRadiusAtFill = Mathf.Lerp(innerBottomRadius, innerTopRadius, Mathf.Clamp01(fillHeight / Mathf.Max(0.001f, liquidTopLocalY - liquidBottomLocalY)));
+
+        liquidFilter.sharedMesh = CreateLiquidMesh(innerBottomRadius * 0.995f, topRadiusAtFill * 0.995f, fillHeight, radialSegments);
+        liquidFilter.transform.localPosition = new Vector3(0f, liquidBottomLocalY, 0f);
+
+        paintMat.color = paintColor;
+        paintRenderer.sharedMaterial = paintMat;
+        paintRenderer.enabled = fillT > 0.001f;
+    }
+
+    static Vector3[] GetBoundsCorners(Bounds bounds)
+    {
+        Vector3 c = bounds.center;
+        Vector3 e = bounds.extents;
+        return new[]
+        {
+            c + new Vector3( e.x,  e.y,  e.z),
+            c + new Vector3( e.x,  e.y, -e.z),
+            c + new Vector3( e.x, -e.y,  e.z),
+            c + new Vector3( e.x, -e.y, -e.z),
+            c + new Vector3(-e.x,  e.y,  e.z),
+            c + new Vector3(-e.x,  e.y, -e.z),
+            c + new Vector3(-e.x, -e.y,  e.z),
+            c + new Vector3(-e.x, -e.y, -e.z),
+        };
+    }
+
+    MeshFilter CreateMeshChild(string name, Material material, Mesh mesh)
+    {
+        GameObject go = new GameObject(name);
+        go.transform.SetParent(transform, false);
+        MeshFilter filter = go.AddComponent<MeshFilter>();
+        filter.sharedMesh = mesh;
+        MeshRenderer renderer = go.AddComponent<MeshRenderer>();
+        renderer.sharedMaterial = material;
+        return filter;
+    }
+
+    GameObject CreatePrimitiveChild(string name, PrimitiveType type, Material material)
+    {
+        GameObject go = GameObject.CreatePrimitive(type);
         go.name = name;
-        go.GetComponent<Renderer>().material = mat;
-        // Remove collider — physics is handled by the pendulum script
+        go.transform.SetParent(transform, false);
+        go.GetComponent<Renderer>().material = material;
         Destroy(go.GetComponent<Collider>());
         return go;
     }
 
-    static GameObject CreateCapsule(string name, Material mat)
+    static Shader FindLitShader()
     {
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        go.name = name;
-        go.GetComponent<Renderer>().material = mat;
-        Destroy(go.GetComponent<Collider>());
-        return go;
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null)
+            shader = Shader.Find("Standard");
+        if (shader == null)
+            shader = Shader.Find("Diffuse");
+        return shader;
     }
 
-    Material MakeDarkMat()
+    static Mesh CreateFrustumWallMesh(float bottomRadius, float topRadius, float height, int segments, bool invert)
     {
-        Material m = new Material(Shader.Find("Standard"));
-        m.color = new Color(0.1f, 0.1f, 0.1f);
-        return m;
+        Mesh mesh = new Mesh();
+        mesh.name = "FrustumWall";
+
+        var vertices = new List<Vector3>();
+        var normals = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var triangles = new List<int>();
+
+        float slope = (bottomRadius - topRadius) / Mathf.Max(0.0001f, height);
+
+        for (int i = 0; i <= segments; i++)
+        {
+            float t = i / (float)segments;
+            float angle = t * Mathf.PI * 2f;
+            float x = Mathf.Cos(angle);
+            float z = Mathf.Sin(angle);
+            Vector3 wallNormal = new Vector3(x, slope, z).normalized;
+            if (invert)
+                wallNormal = -wallNormal;
+
+            vertices.Add(new Vector3(x * bottomRadius, 0f, z * bottomRadius));
+            vertices.Add(new Vector3(x * topRadius, height, z * topRadius));
+            normals.Add(wallNormal);
+            normals.Add(wallNormal);
+            uvs.Add(new Vector2(t, 0f));
+            uvs.Add(new Vector2(t, 1f));
+        }
+
+        for (int i = 0; i < segments; i++)
+        {
+            int baseIndex = i * 2;
+            if (!invert)
+            {
+                triangles.Add(baseIndex);
+                triangles.Add(baseIndex + 2);
+                triangles.Add(baseIndex + 1);
+
+                triangles.Add(baseIndex + 1);
+                triangles.Add(baseIndex + 2);
+                triangles.Add(baseIndex + 3);
+            }
+            else
+            {
+                triangles.Add(baseIndex);
+                triangles.Add(baseIndex + 1);
+                triangles.Add(baseIndex + 2);
+
+                triangles.Add(baseIndex + 1);
+                triangles.Add(baseIndex + 3);
+                triangles.Add(baseIndex + 2);
+            }
+        }
+
+        mesh.SetVertices(vertices);
+        mesh.SetNormals(normals);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    static Mesh CreateDiscMesh(float radius, int segments, bool upward)
+    {
+        Mesh mesh = new Mesh();
+        mesh.name = "Disc";
+
+        var vertices = new List<Vector3>();
+        var normals = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var triangles = new List<int>();
+
+        Vector3 normal = upward ? Vector3.up : Vector3.down;
+        vertices.Add(Vector3.zero);
+        normals.Add(normal);
+        uvs.Add(new Vector2(0.5f, 0.5f));
+
+        for (int i = 0; i <= segments; i++)
+        {
+            float t = i / (float)segments;
+            float angle = t * Mathf.PI * 2f;
+            float x = Mathf.Cos(angle);
+            float z = Mathf.Sin(angle);
+            vertices.Add(new Vector3(x * radius, 0f, z * radius));
+            normals.Add(normal);
+            uvs.Add(new Vector2(x * 0.5f + 0.5f, z * 0.5f + 0.5f));
+        }
+
+        for (int i = 1; i <= segments; i++)
+        {
+            if (upward)
+            {
+                triangles.Add(0);
+                triangles.Add(i);
+                triangles.Add(i + 1);
+            }
+            else
+            {
+                triangles.Add(0);
+                triangles.Add(i + 1);
+                triangles.Add(i);
+            }
+        }
+
+        mesh.SetVertices(vertices);
+        mesh.SetNormals(normals);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateBounds();
+        return mesh;
+    }
+
+    static Mesh CreateLiquidMesh(float bottomRadius, float topRadius, float height, int segments)
+    {
+        Mesh mesh = new Mesh();
+        mesh.name = "LiquidVolume";
+
+        var vertices = new List<Vector3>();
+        var normals = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var triangles = new List<int>();
+        var topCapRingIndices = new List<int>(segments + 1);
+
+        float slope = (bottomRadius - topRadius) / Mathf.Max(0.0001f, height);
+
+        for (int i = 0; i <= segments; i++)
+        {
+            float t = i / (float)segments;
+            float angle = t * Mathf.PI * 2f;
+            float x = Mathf.Cos(angle);
+            float z = Mathf.Sin(angle);
+            Vector3 normal = new Vector3(x, slope, z).normalized;
+
+            vertices.Add(new Vector3(x * bottomRadius, 0f, z * bottomRadius));
+            vertices.Add(new Vector3(x * topRadius, height, z * topRadius));
+            normals.Add(normal);
+            normals.Add(normal);
+            uvs.Add(new Vector2(t, 0f));
+            uvs.Add(new Vector2(t, 1f));
+        }
+
+        for (int i = 0; i < segments; i++)
+        {
+            int baseIndex = i * 2;
+            triangles.Add(baseIndex);
+            triangles.Add(baseIndex + 2);
+            triangles.Add(baseIndex + 1);
+
+            triangles.Add(baseIndex + 1);
+            triangles.Add(baseIndex + 2);
+            triangles.Add(baseIndex + 3);
+        }
+
+        int topCenterIndex = vertices.Count;
+        vertices.Add(new Vector3(0f, height, 0f));
+        normals.Add(Vector3.up);
+        uvs.Add(new Vector2(0.5f, 0.5f));
+
+        for (int i = 0; i <= segments; i++)
+        {
+            float t = i / (float)segments;
+            float angle = t * Mathf.PI * 2f;
+            float x = Mathf.Cos(angle);
+            float z = Mathf.Sin(angle);
+            topCapRingIndices.Add(vertices.Count);
+            vertices.Add(new Vector3(x * topRadius, height, z * topRadius));
+            normals.Add(Vector3.up);
+            uvs.Add(new Vector2(x * 0.5f + 0.5f, z * 0.5f + 0.5f));
+        }
+
+        for (int i = 0; i < segments; i++)
+        {
+            int ringIndex = topCapRingIndices[i];
+            int nextRingIndex = topCapRingIndices[i + 1];
+            triangles.Add(topCenterIndex);
+            triangles.Add(ringIndex);
+            triangles.Add(nextRingIndex);
+        }
+
+        mesh.SetVertices(vertices);
+        mesh.SetNormals(normals);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateBounds();
+        return mesh;
     }
 }

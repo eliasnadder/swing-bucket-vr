@@ -5,6 +5,7 @@ public class CanvasExporter : MonoBehaviour
 {
     [Header("Canvas Reference")]
     public PaintSurfaceCanvas canvasTarget;
+    public PaintCanvas modernCanvasTarget;
 
     [Header("UI Export Button")]
     public UnityEngine.UI.Button exportButton;
@@ -19,19 +20,21 @@ public class CanvasExporter : MonoBehaviour
 
     public void ExportCanvasToPNG()
     {
-        if (canvasTarget == null)
-        {
-            Debug.LogError("Export Error: PaintSurfaceCanvas reference is missing!");
-            return;
-        }
+        Texture2D structuralTexture = null;
 
-        // 1. Grab the active runtime texture from our canvas script
-        // We look for the main texture on the renderer assigned to your canvas
-        Texture2D structuralTexture = canvasTarget.GetPaintTexture();
+        if (modernCanvasTarget != null)
+        {
+            modernCanvasTarget.FlushPending();
+            structuralTexture = modernCanvasTarget.GetPaintTexture();
+        }
+        else if (canvasTarget != null)
+        {
+            structuralTexture = canvasTarget.GetPaintTexture();
+        }
 
         if (structuralTexture == null)
         {
-            Debug.LogError("Export Error: Could not extract Texture2D from the Canvas material.");
+            Debug.LogError("Export Error: Canvas reference is missing!");
             return;
         }
 
