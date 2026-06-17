@@ -7,6 +7,12 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public Transform pivotPoint;
     private LineRenderer ropeRenderer;
 
+    [Header("Rope Visuals")]
+    [Range(4, 40)] public int ropeSegments = 20;
+    [Range(0f, 0.15f)] public float sagFactor = 0.04f;
+    public float ropeWidthTop = 0.06f;
+    public float ropeWidthBottom = 0.02f;
+
     [Header("Pendulum Parameters")]
     public float L0 = 5f;
     public float m0 = 2f;
@@ -38,6 +44,8 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float EffectiveGravity { get; private set; }
     public float AngularAccelerationTheta { get; private set; }
     public Vector3 DailVelocity => BucketVelocity;
+    public float CurrentLength => currentLength;
+    public float CurrentTheta => theta;
 
     private struct State { public float t, o_t, p, o_p, L, dL; }
     private struct Derivs { public float d_t, d_ot, d_p, d_op, d_L, d_dL; }
@@ -90,15 +98,35 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
              L * Mathf.Sin(t) * Mathf.Sin(p));
     }
 
+    // void SetupLineRenderer()
+    // {
+    //     ropeRenderer = GetComponent<LineRenderer>();
+    //     ropeRenderer.positionCount = 2;
+    //     ropeRenderer.startWidth = 0.04f;
+    //     ropeRenderer.endWidth = 0.04f;
+    //     ropeRenderer.material = new Material(Shader.Find("Sprites/Default"));
+    //     ropeRenderer.startColor = Color.gray;
+    //     ropeRenderer.endColor = Color.black;
+    // }
+
     void SetupLineRenderer()
     {
         ropeRenderer = GetComponent<LineRenderer>();
-        ropeRenderer.positionCount = 2;
-        ropeRenderer.startWidth = 0.04f;
-        ropeRenderer.endWidth = 0.04f;
+        ropeRenderer.positionCount = ropeSegments + 1;
+        ropeRenderer.startWidth = ropeWidthTop;
+        ropeRenderer.endWidth = ropeWidthBottom;
+
+        // تدرّج اللون: رمادي فاتح عند المحور → رمادي غامق عند الدلو
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new[] { new GradientColorKey(new Color(0.7f, 0.7f, 0.7f), 0f),
+                new GradientColorKey(new Color(0.25f, 0.25f, 0.25f), 1f) },
+            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) }
+        );
+        ropeRenderer.colorGradient = gradient;
+
         ropeRenderer.material = new Material(Shader.Find("Sprites/Default"));
-        ropeRenderer.startColor = Color.gray;
-        ropeRenderer.endColor = Color.black;
+        ropeRenderer.useWorldSpace = true;
     }
 
     Vector3 GetWindForce() =>
@@ -227,12 +255,53 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         dL = s.dL + h * d.d_dL
     };
 
+    // void UpdateRopeVisuals()
+    // {
+    //     if (ropeRenderer && pivotPoint)
+    //     {
+    //         ropeRenderer.SetPosition(0, pivotPoint.position);
+    //         ropeRenderer.SetPosition(1, transform.position);
+    //     }
+    // }
+
     void UpdateRopeVisuals()
     {
-        if (ropeRenderer && pivotPoint)
+        if (ropeRenderer == null || pivotPoint == null) return;
+
+        ropeRenderer.positionCount = ropeSegments + 1;
+
+        Vector3 start = pivotPoint.position;
+        Vector3 end = transform.position;
+
+        // اتجاه الترهّل: عمودي على الحبل في مستوى الجاذبية
+        Vector3 ropeVec = end - start;
+        Vector3 sagDir = Vector3.Cross(Vector3.Cross(ropeVec, Vector3.up), ropeVec);
+        if (sagDir.sqrMagnitude > 0.0001f) sagDir.Normalize();
+        else sagDir = Vector3.right;
+
+        // كمية الترهّل — تقل كلما زاد الشدّ (امتداد الحبل)
+        float extension = Mathf.Max(0f, currentLength - L0);
+        float sag = sagFactor * currentLength * Mathf.Exp(-extension * 5f);
+
+        // لون الشدّ: رمادي → أحمر خفيف كلما امتدّ الحبل
+        float tensionRatio = Mathf.Clamp01(extension / (L0 * 0.2f));
+        Color topColor = Color.Lerp(new Color(0.7f, 0.7f, 0.7f), new Color(0.8f, 0.3f, 0.3f), tensionRatio);
+        Color bottomColor = Color.Lerp(new Color(0.25f, 0.25f, 0.25f), new Color(0.6f, 0.1f, 0.1f), tensionRatio);
+
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new[] { new GradientColorKey(topColor, 0f), new GradientColorKey(bottomColor, 1f) },
+            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) }
+        );
+        ropeRenderer.colorGradient = gradient;
+
+        // ارسم نقاط الحبل بمنحنى جيبي (catenary تقريبي)
+        for (int i = 0; i <= ropeSegments; i++)
         {
-            ropeRenderer.SetPosition(0, pivotPoint.position);
-            ropeRenderer.SetPosition(1, transform.position);
+            float t = i / (float)ropeSegments;
+            Vector3 p = Vector3.Lerp(start, end, t);
+            p += sagDir * (sag * Mathf.Sin(Mathf.PI * t));
+            ropeRenderer.SetPosition(i, p);
         }
     }
 
