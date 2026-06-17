@@ -115,8 +115,10 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         ropeRenderer.positionCount = ropeSegments + 1;
         ropeRenderer.startWidth = ropeWidthTop;
         ropeRenderer.endWidth = ropeWidthBottom;
+        ropeRenderer.useWorldSpace = true;
+        ropeRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        ropeRenderer.receiveShadows = false;
 
-        // تدرّج اللون: رمادي فاتح عند المحور → رمادي غامق عند الدلو
         Gradient gradient = new Gradient();
         gradient.SetKeys(
             new[] { new GradientColorKey(new Color(0.7f, 0.7f, 0.7f), 0f),
@@ -125,8 +127,15 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         );
         ropeRenderer.colorGradient = gradient;
 
-        ropeRenderer.material = new Material(Shader.Find("Sprites/Default"));
-        ropeRenderer.useWorldSpace = true;
+        // ── FIX: fallback chain يضمن إيجاد shader صالح في URP / Built-in ──
+        Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
+        if (sh == null) sh = Shader.Find("Unlit/Color");
+        if (sh == null) sh = Shader.Find("Sprites/Default");
+        if (sh == null) sh = Shader.Find("Standard");
+
+        var mat = new Material(sh);
+        mat.color = new Color(0.55f, 0.55f, 0.55f);
+        ropeRenderer.material = mat;
     }
 
     Vector3 GetWindForce() =>
@@ -309,5 +318,14 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     {
         if (float.IsNaN(lostMass) || float.IsInfinity(lostMass)) return;
         currentMass = Mathf.Max(0.5f, currentMass - lostMass);
+    }
+
+    // يُعيد ضبط طول الحبل فوراً دون انتظار تقارب الربيع.
+    // يُستدعى من الـ UI عند تغيير الـ slider.
+    public void ResetLength(float newL0)
+    {
+        L0 = Mathf.Max(0.5f, newL0);
+        currentLength = L0;
+        ropeVelocity = 0f;
     }
 }

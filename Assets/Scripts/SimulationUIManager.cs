@@ -124,7 +124,7 @@ public class SimulationUIManager : MonoBehaviour
     void BindListeners()
     {
         // Pendulum
-        Bind(lengthSlider, v => { if (pendulumEngine) pendulumEngine.L0 = v; });
+        Bind(lengthSlider, v => { if (pendulumEngine) pendulumEngine.ResetLength(v); });
         Bind(elasticitySlider, v => { if (pendulumEngine) pendulumEngine.k_rope = v; });
         Bind(ropeDampingSlider, v => { if (pendulumEngine) pendulumEngine.c_rope = v; });
         Bind(airResistanceSlider, v => { if (pendulumEngine) pendulumEngine.b = v; });
