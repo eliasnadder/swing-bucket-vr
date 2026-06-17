@@ -1,6 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(LineRenderer))]
+[ExecuteAlways]
 public class SwingingCoupledSpringPendulum : MonoBehaviour
 {
     [Header("Visual Components")]
@@ -20,8 +21,8 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float b = 0.1f;
 
     [Header("Spring-Damper Rope")]
-    public float k_rope = 50f;   // ← خُفِّض من 500 → 50 لمنع تيبّس الربيع
-    public float c_rope = 5f;    // ← خُفِّض من 10  → 5
+    public float k_rope = 50f;
+    public float c_rope = 5f;
 
     [Header("Wind Parameters")]
     public float windSpeed = 0f;
@@ -29,9 +30,13 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float windCoeff = 0.5f;
 
     [Header("Initial State")]
-    public float initialTheta = 30f;   // ← خُفِّض من 45 → 30 للاستقرار
+    public float initialTheta = 30f;
     public float initialOmega = 0f;
     public float initialPhi = 0f;
+
+    [Header("Editor Helper")]
+    [Tooltip("في وضع التحرير فقط (Edit Mode): يحسب θ₀ وL0 وφ₀ تلقائياً من موضع السطل الحالي نسبة لنقطة التعليق الثابتة، بدلاً من تحريك نقطة التعليق نفسها")]
+    public bool autoSyncFromScenePosition = true;
 
     // حالة النظام
     private float theta, omega_theta, phi, omega_phi;
@@ -53,6 +58,8 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     // ─────────────────────────────────────────
     void Start()
     {
+        if (!Application.isPlaying) return; // أمان إضافي بسبب [ExecuteAlways]
+
         currentMass = m0;
         currentLength = L0;
         ropeVelocity = 0f;
@@ -62,24 +69,17 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         phi = initialPhi * Mathf.Deg2Rad;
         omega_phi = 0f;
 
-        // ── أنشئ Pivot بحيث يكون السطل في موضعه الحالي في المشهد ──
+        // ── نقطة التعليق ثابتة دائماً. إن لم تُعيَّن، أنشئ واحدة تلقائياً فوق السطل الحالي ──
         if (pivotPoint == null)
         {
-            var go = new GameObject("Auto_Pivot");
+            var goPivot = new GameObject("Auto_Pivot");
             Vector3 offset = SphericalToCartesian(L0, theta, phi);
-            go.transform.position = transform.position - offset;
-            pivotPoint = go.transform;
-        }
-        else
-        {
-            // إذا كان pivotPoint مُعيَّناً في Inspector، احسب الموضع الأولي
-            // من موضع السطل الحالي في المشهد بدلاً من إعادة حسابه من الزاوية
-            // هذا يمنع قفز السطل عند بدء التشغيل
-            Vector3 offset = SphericalToCartesian(L0, theta, phi);
-            pivotPoint.position = transform.position - offset;
+            goPivot.transform.position = transform.position - offset;
+            pivotPoint = goPivot.transform;
         }
 
-        // ضع السطل عند الموضع الصحيح فوراً
+        // ── السطل دائماً يُحسب من نقطة التعليق + الزاوية والطول ──
+        // نقطة التعليق لا تتغيّر أبداً بسبب موضع السطل بعد الآن
         transform.position = pivotPoint.position + SphericalToCartesian(currentLength, theta, phi);
 
         previousPosition = transform.position;
@@ -98,16 +98,31 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
              L * Mathf.Sin(t) * Mathf.Sin(p));
     }
 
-    // void SetupLineRenderer()
-    // {
-    //     ropeRenderer = GetComponent<LineRenderer>();
-    //     ropeRenderer.positionCount = 2;
-    //     ropeRenderer.startWidth = 0.04f;
-    //     ropeRenderer.endWidth = 0.04f;
-    //     ropeRenderer.material = new Material(Shader.Find("Sprites/Default"));
-    //     ropeRenderer.startColor = Color.gray;
-    //     ropeRenderer.endColor = Color.black;
-    // }
+    // ── يعمل فقط في وضع التحرير: يقرأ موضع السطل الحالي ويحسب θ₀/L0/φ₀ المطابقة ──
+    void Update()
+    {
+        if (Application.isPlaying)
+            return;
+
+        if (!autoSyncFromScenePosition || pivotPoint == null)
+            return;
+
+        SyncAnglesFromScenePosition();
+    }
+
+    void SyncAnglesFromScenePosition()
+    {
+        Vector3 v = transform.position - pivotPoint.position;
+        float len = v.magnitude;
+        if (len < 0.01f) return; // تجنّب القسمة على صفر لو السطل فوق نقطة التعليق تماماً
+
+        float t = Mathf.Acos(Mathf.Clamp(-v.y / len, -1f, 1f));
+        float p = Mathf.Atan2(v.z, v.x);
+
+        L0 = len;
+        initialTheta = t * Mathf.Rad2Deg;
+        initialPhi = p * Mathf.Rad2Deg;
+    }
 
     void SetupLineRenderer()
     {
@@ -127,7 +142,6 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         );
         ropeRenderer.colorGradient = gradient;
 
-        // ── FIX: fallback chain يضمن إيجاد shader صالح في URP / Built-in ──
         Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
         if (sh == null) sh = Shader.Find("Unlit/Color");
         if (sh == null) sh = Shader.Find("Sprites/Default");
@@ -149,7 +163,6 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         d.d_p = s.o_p;
         d.d_L = s.dL;
 
-        // ── حماية L و sinT من الصفر / NaN ──
         float safeL = Mathf.Max(s.L, 0.1f);
         float sinT = Mathf.Sin(s.t);
         float cosT = Mathf.Cos(s.t);
@@ -164,20 +177,17 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         float Fw_phi = Vector3.Dot(Fw, phi_hat);
         float Fw_r = Vector3.Dot(Fw, r_hat);
 
-        // معادلة θ
         d.d_ot = sinT * cosT * s.o_p * s.o_p
                - (g / safeL) * sinT
                - 2f * (s.dL / safeL) * s.o_t
                - (b / currentMass) * s.o_t
                + Fw_theta / (currentMass * safeL);
 
-        // معادلة φ
         d.d_op = -2f * (s.dL / safeL) * s.o_p
                - 2f * (cosT / sinT_safe) * s.o_t * s.o_p
                - (b / currentMass) * s.o_p
                + Fw_phi / (currentMass * safeL * sinT_safe);
 
-        // معادلة الطول (Spring-Damper)
         float F_cf = currentMass * safeL * (s.o_t * s.o_t + sinT * sinT * s.o_p * s.o_p);
         float F_grav_r = currentMass * g * cosT;
         float F_spring = -k_rope * (s.L - L0);
@@ -185,7 +195,6 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
 
         d.d_dL = (F_grav_r + F_cf + F_spring + F_damp + Fw_r) / currentMass;
 
-        // ── إيقاف الانفجار العددي ──
         const float CLAMP = 1000f;
         d.d_ot = Mathf.Clamp(d.d_ot, -CLAMP, CLAMP);
         d.d_op = Mathf.Clamp(d.d_op, -CLAMP, CLAMP);
@@ -196,12 +205,13 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (!Application.isPlaying || pivotPoint == null) return;
+
         float dt = Time.fixedDeltaTime;
 
         State s = new State
         { t = theta, o_t = omega_theta, p = phi, o_p = omega_phi, L = currentLength, dL = ropeVelocity };
 
-        // RK4
         Derivs d1 = CalculateDerivatives(s);
         Derivs d2 = CalculateDerivatives(Step(s, d1, dt * 0.5f));
         Derivs d3 = CalculateDerivatives(Step(s, d2, dt * 0.5f));
@@ -214,7 +224,6 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         currentLength += (dt / 6f) * (d1.d_L + 2 * d2.d_L + 2 * d3.d_L + d4.d_L);
         ropeVelocity += (dt / 6f) * (d1.d_dL + 2 * d2.d_dL + 2 * d3.d_dL + d4.d_dL);
 
-        // ── حماية: إعادة ضبط إذا ظهر NaN ──
         if (float.IsNaN(theta) || float.IsNaN(phi) || float.IsNaN(currentLength))
         {
             Debug.LogWarning("[Pendulum] NaN detected — resetting state");
@@ -237,10 +246,9 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
                 Mathf.Pow(g + omega_tot * omega_tot * currentLength * Mathf.Cos(theta), 2) +
                 Mathf.Pow(AngularAccelerationTheta * currentLength * Mathf.Sin(theta), 2)));
 
-        // تحديث الموضع
+        // نقطة التعليق ثابتة هنا — لا تُحسب من جديد أبداً
         Vector3 newPos = pivotPoint.position + SphericalToCartesian(currentLength, theta, phi);
 
-        // ── حماية أخيرة: لا تُطبق إذا كان NaN ──
         if (!float.IsNaN(newPos.x) && !float.IsNaN(newPos.y) && !float.IsNaN(newPos.z))
             transform.position = newPos;
 
@@ -260,18 +268,9 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         o_t = s.o_t + h * d.d_ot,
         p = s.p + h * d.d_p,
         o_p = s.o_p + h * d.d_op,
-        L = Mathf.Max(s.L + h * d.d_L, 0.1f),   // ← لا يصبح صفر
+        L = Mathf.Max(s.L + h * d.d_L, 0.1f),
         dL = s.dL + h * d.d_dL
     };
-
-    // void UpdateRopeVisuals()
-    // {
-    //     if (ropeRenderer && pivotPoint)
-    //     {
-    //         ropeRenderer.SetPosition(0, pivotPoint.position);
-    //         ropeRenderer.SetPosition(1, transform.position);
-    //     }
-    // }
 
     void UpdateRopeVisuals()
     {
@@ -282,17 +281,14 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         Vector3 start = pivotPoint.position;
         Vector3 end = transform.position;
 
-        // اتجاه الترهّل: عمودي على الحبل في مستوى الجاذبية
         Vector3 ropeVec = end - start;
         Vector3 sagDir = Vector3.Cross(Vector3.Cross(ropeVec, Vector3.up), ropeVec);
         if (sagDir.sqrMagnitude > 0.0001f) sagDir.Normalize();
         else sagDir = Vector3.right;
 
-        // كمية الترهّل — تقل كلما زاد الشدّ (امتداد الحبل)
         float extension = Mathf.Max(0f, currentLength - L0);
         float sag = sagFactor * currentLength * Mathf.Exp(-extension * 5f);
 
-        // لون الشدّ: رمادي → أحمر خفيف كلما امتدّ الحبل
         float tensionRatio = Mathf.Clamp01(extension / (L0 * 0.2f));
         Color topColor = Color.Lerp(new Color(0.7f, 0.7f, 0.7f), new Color(0.8f, 0.3f, 0.3f), tensionRatio);
         Color bottomColor = Color.Lerp(new Color(0.25f, 0.25f, 0.25f), new Color(0.6f, 0.1f, 0.1f), tensionRatio);
@@ -304,7 +300,6 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         );
         ropeRenderer.colorGradient = gradient;
 
-        // ارسم نقاط الحبل بمنحنى جيبي (catenary تقريبي)
         for (int i = 0; i <= ropeSegments; i++)
         {
             float t = i / (float)ropeSegments;
@@ -320,8 +315,6 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         currentMass = Mathf.Max(0.5f, currentMass - lostMass);
     }
 
-    // يُعيد ضبط طول الحبل فوراً دون انتظار تقارب الربيع.
-    // يُستدعى من الـ UI عند تغيير الـ slider.
     public void ResetLength(float newL0)
     {
         L0 = Mathf.Max(0.5f, newL0);
