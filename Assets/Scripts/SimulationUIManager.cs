@@ -4,6 +4,8 @@ using TMPro;
 
 public class SimulationUIManager : MonoBehaviour
 {
+    private const float UNITS_TO_METERS = 100f;
+
     [Header("Engine References")]
     public SwingingCoupledSpringPendulum pendulumEngine;
     public FluidSPHSystem fluidEngine;
@@ -17,7 +19,7 @@ public class SimulationUIManager : MonoBehaviour
     public Slider elasticitySlider;
     public TextMeshProUGUI elasticityValueText;
 
-    public Slider ropeDampingSlider;        // c_rope — جديد
+    public Slider ropeDampingSlider;        // c_rope
     public TextMeshProUGUI ropeDampingValueText;
 
     public Slider airResistanceSlider;
@@ -26,10 +28,10 @@ public class SimulationUIManager : MonoBehaviour
     public Slider gravitySlider;
     public TextMeshProUGUI gravityValueText;
 
-    public Slider initialAngleSlider;       // θ₀ — جديد
+    public Slider initialAngleSlider;       // θ₀
     public TextMeshProUGUI initialAngleValueText;
 
-    public Slider initialOmegaSlider;       // ω₀ — جديد
+    public Slider initialOmegaSlider;       // ω₀
     public TextMeshProUGUI initialOmegaValueText;
 
     // ============== Fluid ==============
@@ -37,10 +39,10 @@ public class SimulationUIManager : MonoBehaviour
     public Slider orificeSlider;
     public TextMeshProUGUI orificeValueText;
 
-    public Slider viscositySlider;          // لزوجة — جديد
+    public Slider viscositySlider;          // لزوجة
     public TextMeshProUGUI viscosityValueText;
 
-    public Slider paintAmountSlider;        // كمية الطلاء — جديد
+    public Slider paintAmountSlider;        // كمية الطلاء 
     public TextMeshProUGUI paintAmountValueText;
 
     // ============== Environment (Section 2.7) ==============
@@ -94,7 +96,7 @@ public class SimulationUIManager : MonoBehaviour
     {
         if (pendulumEngine != null)
         {
-            SetSlider(lengthSlider, pendulumEngine.L0);
+            SetSlider(lengthSlider, pendulumEngine.L0 / UNITS_TO_METERS);
             SetSlider(elasticitySlider, pendulumEngine.k_rope);
             SetSlider(ropeDampingSlider, pendulumEngine.c_rope);
             SetSlider(airResistanceSlider, pendulumEngine.b);
@@ -124,7 +126,7 @@ public class SimulationUIManager : MonoBehaviour
     void BindListeners()
     {
         // Pendulum
-        Bind(lengthSlider, v => { if (pendulumEngine) pendulumEngine.ResetLength(v); });
+        Bind(lengthSlider, v => { if (pendulumEngine) pendulumEngine.ResetLength(v * UNITS_TO_METERS); });
         Bind(elasticitySlider, v => { if (pendulumEngine) pendulumEngine.k_rope = v; });
         Bind(ropeDampingSlider, v => { if (pendulumEngine) pendulumEngine.c_rope = v; });
         Bind(airResistanceSlider, v => { if (pendulumEngine) pendulumEngine.b = v; });

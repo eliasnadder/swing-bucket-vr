@@ -25,10 +25,12 @@ public class LiveDataOverlay : MonoBehaviour
 
     string BuildText()
     {
+        const float U2M = 100f; // وحدات Unity → متر
+
         // ── بيانات البندول ──
-        float speed = pendulum != null ? pendulum.BucketVelocity.magnitude : 0f;
-        float L = pendulum != null ? pendulum.CurrentLength : 0f;
-        float gEff = pendulum != null ? pendulum.EffectiveGravity : 0f;
+        float speed = pendulum != null ? pendulum.BucketVelocity.magnitude / U2M : 0f;
+        float L = pendulum != null ? pendulum.CurrentLength / U2M : 0f;
+        float gEff = pendulum != null ? pendulum.EffectiveGravity / U2M : 0f;
         float thetaDeg = pendulum != null ? pendulum.CurrentTheta * Mathf.Rad2Deg : 0f;
 
         // الطاقة الحركية والوضعية نسبةً للنقطة الأدنى
@@ -36,7 +38,7 @@ public class LiveDataOverlay : MonoBehaviour
         if (pendulum != null)
         {
             float m = pendulum.m0;
-            float g = pendulum.g;
+            float g = pendulum.g / U2M;
             ke = 0.5f * m * speed * speed;
             pe = m * g * L * (1f - Mathf.Cos(pendulum.CurrentTheta));
             totalE = ke + pe;
