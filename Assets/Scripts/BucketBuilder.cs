@@ -58,7 +58,11 @@ public class BucketBuilder : MonoBehaviour
     private float liquidTopLocalY;
     private float lastFillT = -1f;
     private Color lastPaintColor = Color.clear;
+    // نصف قطر قاع السطل الفعلي — متاح للسكريبتات الأخرى (FluidSPHSystem, UI...)
+    public float InnerBottomRadius => Mathf.Max(0.01f, bottomRadius);
 
+    // أقصى قطر منطقي لفتحة السطل (حتى لا تتجاوز حجم القاع)
+    public float OrificeMaxDiameter => InnerBottomRadius * 1.2f;
     void Start()
     {
         if (fluidSystem == null)
@@ -281,6 +285,9 @@ public class BucketBuilder : MonoBehaviour
     {
         return paintSpawnPoint != null ? paintSpawnPoint.position : transform.position;
     }
+
+    // ← جديد: يكشف الـ Transform نفسه حتى تقدر سكريبتات تانية تربط فيه مباشرة
+    public Transform PaintSpawnTransform => paintSpawnPoint;
 
     void UpdateLiquidVisual(bool force)
     {

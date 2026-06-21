@@ -16,6 +16,7 @@ public class FluidSPHSystem : MonoBehaviour
 
     [Header("Relying References")]
     public SwingingCoupledSpringPendulum pendulum;
+    public BucketBuilder bucketBuilder;   // ← جديد: لتحديد موضع فتحة السطل الحقيقي
 
     [Header("Fluid Properties (Table 2.4.2)")]
     public float orificeDiameter = 0.05f;
@@ -24,6 +25,10 @@ public class FluidSPHSystem : MonoBehaviour
     public float paintDensity0 = 1200f;
     public float viscosity = 0.1f;
     public float h_kernel = 0.2f;
+
+    [Header("Emission Tuning")]
+    public float particlesPerVolumeUnit = 50000f;  // معامل التحويل من حجم → عدد جسيمات
+    private float emissionAccumulator = 0f;        // ← جديد
 
     [Header("Environment (Section 2.7)")]
     [Tooltip("درجة الحرارة بالسيليزيوس")]
@@ -54,14 +59,24 @@ public class FluidSPHSystem : MonoBehaviour
     public float CurrentFlowRate { get; private set; }
 
     void Awake() { Instance = this; }
+    void OnValidate()
+    {
+        ClampOrificeDiameter();
+    }
 
+    void ClampOrificeDiameter()
+    {
+        if (bucketBuilder == null) return;
+        float minD = 0.01f;
+        float maxD = bucketBuilder.OrificeMaxDiameter;
+        orificeDiameter = Mathf.Clamp(orificeDiameter, minD, maxD);
+    }
     void Start()
     {
         currentVolume = initialVolume;
         initialPaintHeight = h_paint;
         poly6Norm = 315f / (64f * Mathf.PI * Mathf.Pow(h_kernel, 9f));
 
-        // ── FIX: بحث تلقائي عن البندول إذا لم يُعيَّن ──
         if (pendulum == null)
             pendulum = GetComponent<SwingingCoupledSpringPendulum>();
         if (pendulum == null)
@@ -69,20 +84,26 @@ public class FluidSPHSystem : MonoBehaviour
 
         if (pendulum == null)
             Debug.LogError("[FluidSPHSystem] لم يُعثر على SwingingCoupledSpringPendulum! تأكد من تعيينه في Inspector.");
+
+        if (bucketBuilder == null)
+            bucketBuilder = GetComponent<BucketBuilder>();
+        if (bucketBuilder == null)
+            bucketBuilder = FindAnyObjectByType<BucketBuilder>();
+        ClampOrificeDiameter();
     }
 
     public void ChangePaintColor(Color c) => currentPaintColor = c;
 
     void FixedUpdate()
     {
-        // ── FIX: حماية من NullReference ──
+        // ── حماية من NullReference ──
         if (pendulum == null) { CurrentFlowRate = 0f; return; }
         if (currentVolume <= 0f) { CurrentFlowRate = 0f; return; }
 
         float dt = Time.fixedDeltaTime;
         float area = Mathf.PI * Mathf.Pow(orificeDiameter * 0.5f, 2f);
 
-        // ── FIX: قيمة دنيا أعلى لـ geff لضمان تدفق مرئي ──
+        // ── قيمة دنيا أعلى لـ geff لضمان تدفق مرئي ──
         float geff = Mathf.Max(1f, pendulum.EffectiveGravity);
 
         float safeH = Mathf.Max(0f, h_paint);
@@ -96,16 +117,24 @@ public class FluidSPHSystem : MonoBehaviour
 
         h_paint = Mathf.Max(0f, (currentVolume / initialVolume) * initialPaintHeight);
 
-        // ── FIX: معدل توليد أكثر استقراراً ──
-        int spawnCount = Mathf.Max(0, Mathf.RoundToInt(Q * 10000f * dt));
+        // ── معدل توليد أكثر استقراراً ──
+        // بدل التقريب المباشر، نراكم الكسور حتى لا نفقد الجسيمات الصغيرة كل فريم
+        emissionAccumulator += Q * particlesPerVolumeUnit * dt;
+        int spawnCount = Mathf.FloorToInt(emissionAccumulator);
+        emissionAccumulator -= spawnCount;
         // تحديد سقف للجسيمات لمنع تدهور الأداء
-        spawnCount = Mathf.Min(spawnCount, 20);
+        spawnCount = Mathf.Min(spawnCount, 20); if (Time.frameCount % 30 == 0)
+            Debug.Log($"Q={Q:F5}, h_paint={h_paint:F3}, spawnCount={spawnCount}, currentVolume={currentVolume:F4}");
+
+        // ── الموضع الحقيقي لفتحة السطل (Orifice) بدل مركز السطل ──
+        Vector3 spawnBase = bucketBuilder != null
+            ? bucketBuilder.GetPaintSpawnPosition()
+            : pendulum.transform.position;
 
         for (int i = 0; i < spawnCount; i++)
         {
             SPHParticle p = new SPHParticle();
-            p.position = pendulum.transform.position;
-            // ── FIX: إضافة تشتت صغير لتجنب تراكب الجسيمات ──
+            p.position = spawnBase;
             p.position += new Vector3(
                 Random.Range(-0.02f, 0.02f),
                 0f,

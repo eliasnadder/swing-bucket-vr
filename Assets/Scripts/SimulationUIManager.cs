@@ -10,6 +10,7 @@ public class SimulationUIManager : MonoBehaviour
     public SwingingCoupledSpringPendulum pendulumEngine;
     public FluidSPHSystem fluidEngine;
     public PaintSurfaceCanvas canvasEngine;
+    public BucketBuilder bucketBuilder;
 
     // ============== Pendulum ==============
     [Header("Pendulum Sliders")]
@@ -86,8 +87,8 @@ public class SimulationUIManager : MonoBehaviour
     // ============================================================
     void Start()
     {
-        InitSliderValues();
         BindListeners();
+        InitSliderValues();
         UpdateLabels();
     }
 
@@ -106,6 +107,11 @@ public class SimulationUIManager : MonoBehaviour
         }
         if (fluidEngine != null)
         {
+            if (bucketBuilder != null && orificeSlider != null)
+            {
+                orificeSlider.minValue = 0.01f;
+                orificeSlider.maxValue = bucketBuilder.OrificeMaxDiameter;
+            }
             SetSlider(orificeSlider, fluidEngine.orificeDiameter);
             SetSlider(viscositySlider, fluidEngine.viscosity);
             SetSlider(paintAmountSlider, fluidEngine.initialVolume * 1000f);

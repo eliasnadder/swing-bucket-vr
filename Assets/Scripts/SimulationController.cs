@@ -3,7 +3,6 @@ using UnityEngine;
 public class SimulationController : MonoBehaviour
 {
     [Header("References")]
-    public BucketPendulum bucketPendulum;
     public PaintEmitter paintEmitter;
     public SPHFluidSolver fluidSolver;
     public CustomBoundary boundary;
@@ -12,15 +11,9 @@ public class SimulationController : MonoBehaviour
 
     [Header("Simulation")]
     public bool autoRun = true;
-    public float fixedStep = 0.0166667f;
-    public int maxSubSteps = 4;
-
-    private float accumulator;
 
     private void Awake()
     {
-        if (bucketPendulum == null)
-            bucketPendulum = FindAnyObjectByType<BucketPendulum>();
         if (paintEmitter == null)
             paintEmitter = FindAnyObjectByType<PaintEmitter>();
         if (fluidSolver == null)
@@ -35,19 +28,10 @@ public class SimulationController : MonoBehaviour
         WireDependencies();
     }
 
-    private void OnValidate()
-    {
-        fixedStep = Mathf.Max(0.0001f, fixedStep);
-        maxSubSteps = Mathf.Max(1, maxSubSteps);
-    }
-
     private void WireDependencies()
     {
         if (paintEmitter != null)
-        {
-            paintEmitter.bucket = bucketPendulum;
             paintEmitter.solver = fluidSolver;
-        }
 
         if (boundary != null)
         {
@@ -59,29 +43,11 @@ public class SimulationController : MonoBehaviour
             sphRenderer.solver = fluidSolver;
     }
 
-    private void Update()
+    private void FixedUpdate()
     {
-        if (!autoRun)
-            return;
+        if (!autoRun) return;
 
-        accumulator += Time.deltaTime;
-        int subSteps = 0;
-
-        while (accumulator >= fixedStep && subSteps < maxSubSteps)
-        {
-            StepSimulation(fixedStep);
-            accumulator -= fixedStep;
-            subSteps++;
-        }
-    }
-
-    public void StepSimulation(float dt)
-    {
-        if (bucketPendulum != null)
-        {
-            bucketPendulum.simulateAutomatically = false;
-            bucketPendulum.Step(dt);
-        }
+        float dt = Time.fixedDeltaTime;
 
         if (paintEmitter != null)
             paintEmitter.Emit(dt);
@@ -91,5 +57,7 @@ public class SimulationController : MonoBehaviour
 
         if (boundary != null)
             boundary.ResolveContacts(dt);
+        if (Time.frameCount % 30 == 0)
+            Debug.Log($"ParticleCount={fluidSolver.ParticleCount}");
     }
 }

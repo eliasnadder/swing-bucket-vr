@@ -3,7 +3,7 @@ using UnityEngine;
 public class PaintEmitter : MonoBehaviour
 {
     [Header("References")]
-    public BucketPendulum bucket;
+    public SwingingCoupledSpringPendulum bucket;
     public SPHFluidSolver solver;
 
     [Header("Emitter")]
@@ -27,14 +27,25 @@ public class PaintEmitter : MonoBehaviour
     private void Start()
     {
         if (bucket == null)
-            bucket = GetComponentInParent<BucketPendulum>();
+            bucket = GetComponentInParent<SwingingCoupledSpringPendulum>();
 
-        if (holeTransform == null && bucket != null)
+        if (holeTransform == null)
         {
-            GameObject hole = new GameObject("BucketHole");
-            hole.transform.SetParent(bucket.transform, false);
-            hole.transform.localPosition = holeLocalOffset;
-            holeTransform = hole.transform;
+            var builder = bucket != null ? bucket.GetComponent<BucketBuilder>() : null;
+
+            if (builder != null && builder.PaintSpawnTransform != null)
+            {
+                // استخدم فتحة السطل الحقيقية الجاهزة من BucketBuilder
+                holeTransform = builder.PaintSpawnTransform;
+            }
+            else
+            {
+                // fallback: أنشئ نقطة يدوية بالـ offset القديم
+                GameObject hole = new GameObject("BucketHole");
+                hole.transform.SetParent(bucket.transform, false);
+                hole.transform.localPosition = holeLocalOffset;
+                holeTransform = hole.transform;
+            }
         }
     }
 
@@ -58,7 +69,7 @@ public class PaintEmitter : MonoBehaviour
         for (int i = 0; i < emitCount && paintVolume > 0f; i++)
         {
             Vector3 spawnPosition = GetHoleWorldPosition();
-            Vector3 baseVelocity = bucket.GetBucketVelocity();
+            Vector3 baseVelocity = bucket.BucketVelocity;
             Vector3 downward = Vector3.down * particleInitialSpeed;
             Vector3 spread = new Vector3(
                 Random.Range(-spraySpread, spraySpread),

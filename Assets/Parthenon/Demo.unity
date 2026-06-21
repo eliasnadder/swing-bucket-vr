@@ -1375,6 +1375,55 @@ RectTransform:
   m_AnchoredPosition: {x: -5, y: 0}
   m_SizeDelta: {x: -20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &121860749
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 121860751}
+  - component: {fileID: 121860750}
+  m_Layer: 0
+  m_Name: ParticlesRenderer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &121860750
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 121860749}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 789a6ad8e8d33ba43883e120722bd33f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SPHRenderer
+  solver: {fileID: 0}
+  initialPoolSize: 512
+  particleSize: 0.03
+  particleMaterial: {fileID: 0}
+  createMaterialIfMissing: 1
+--- !u!4 &121860751
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 121860749}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &149985593
 GameObject:
   m_ObjectHideFlags: 0
@@ -2235,6 +2284,7 @@ GameObject:
   - component: {fileID: 268129423}
   - component: {fileID: 268129422}
   - component: {fileID: 268129424}
+  - component: {fileID: 268129425}
   m_Layer: 0
   m_Name: Bucket
   m_TagString: Untagged
@@ -2477,6 +2527,32 @@ MonoBehaviour:
   wallThickness: 0.015
   maxPaintHeight: 0.3
   radialSegments: 28
+--- !u!114 &268129425
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 268129417}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 12d0aee28bfb09e499a559ba607dffc7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PaintEmitter
+  bucket: {fileID: 0}
+  solver: {fileID: 0}
+  holeTransform: {fileID: 0}
+  holeLocalOffset: {x: 0, y: -0.12, z: 0}
+  holeRadius: 0.02
+  flowRate: 0.25
+  paintViscosity: 0.25
+  particleInitialSpeed: 0.2
+  spraySpread: 0.02
+  color: {r: 1, g: 0, b: 0, a: 1}
+  paintVolume: 1
+  particleVolume: 0.00002
+  emitOnStart: 1
+  emissionAccumulator: 0
 --- !u!1 &289119969
 GameObject:
   m_ObjectHideFlags: 0
@@ -6387,6 +6463,7 @@ GameObject:
   - component: {fileID: 931284152}
   - component: {fileID: 931284151}
   - component: {fileID: 931284150}
+  - component: {fileID: 931284153}
   m_Layer: 0
   m_Name: Canva
   m_TagString: Untagged
@@ -6461,11 +6538,33 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 13, z: -120}
-  m_LocalScale: {x: 150, y: 0, z: 250}
+  m_LocalScale: {x: 150, y: 1, z: 250}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &931284153
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 931284148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71f9000880b2d7846b1cc7c34d090618, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PaintCanvas
+  targetRenderer: {fileID: 0}
+  textureWidth: 1024
+  textureHeight: 1024
+  backgroundColor: {r: 1, g: 1, b: 1, a: 1}
+  worldSize: {x: 1, y: 1}
+  plane: 0
+  paintOpacity: 0.75
+  defaultSplatRadiusWorld: 0.03
+  viscosityRadiusScale: 0.15
+  contactThickness: 0.03
 --- !u!1 &932867577
 GameObject:
   m_ObjectHideFlags: 0
@@ -10851,11 +10950,12 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1603322436}
-  - component: {fileID: 1603322434}
   - component: {fileID: 1603322433}
   - component: {fileID: 1603322431}
   - component: {fileID: 1603322437}
   - component: {fileID: 1603322438}
+  - component: {fileID: 1603322440}
+  - component: {fileID: 1603322439}
   m_Layer: 0
   m_Name: _SimulationManager
   m_TagString: Untagged
@@ -10899,32 +10999,6 @@ MonoBehaviour:
   surfaceTension: 0.07
   particleDiameter: 0.01
   weberRadiusScale: 0.002
---- !u!114 &1603322434
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1603322430}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8245a20b088342761a5f7d84fd5dd161, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FluidSPHSystem
-  pendulum: {fileID: 268129422}
-  orificeDiameter: 0.05
-  h_paint: 0.3
-  Cd: 0.6
-  paintDensity0: 1200
-  viscosity: 0.1
-  h_kernel: 0.2
-  temperature: 25
-  humidity: 0.5
-  windSpeed: 0
-  windDirection: {x: 1, y: 0, z: 0}
-  windCoeff: 0.5
-  currentPaintColor: {r: 1, g: 0, b: 0, a: 1}
-  initialVolume: 0.01
 --- !u!4 &1603322436
 Transform:
   m_ObjectHideFlags: 0
@@ -10953,8 +11027,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimulationUIManager
   pendulumEngine: {fileID: 268129422}
-  fluidEngine: {fileID: 1603322434}
+  fluidEngine: {fileID: 0}
   canvasEngine: {fileID: 1603322433}
+  bucketBuilder: {fileID: 268129424}
   lengthSlider: {fileID: 67919125}
   lengthValueText: {fileID: 163604568}
   elasticitySlider: {fileID: 1606364575}
@@ -10999,9 +11074,49 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LiveDataOverlay
   pendulum: {fileID: 268129422}
-  fluidSystem: {fileID: 1603322434}
+  fluidSystem: {fileID: 0}
   overlayText: {fileID: 109856055}
   updateInterval: 0.1
+--- !u!114 &1603322439
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1603322430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4962de12d1c9be64b92f032ba272fc43, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CustomBoundary
+  solver: {fileID: 0}
+  paintCanvas: {fileID: 0}
+  bounceDamping: 0.15
+  surfaceFriction: 0.9
+  killParticleAfterPaint: 1
+  collisionPadding: 0.002
+  splatRadiusWorld: 0.03
+  useBoxBounds: 0
+  boxCenter: {x: 0, y: 0, z: 0}
+  boxSize: {x: 10, y: 10, z: 10}
+  boxBounce: 0.2
+--- !u!114 &1603322440
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1603322430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 789a6ad8e8d33ba43883e120722bd33f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SPHRenderer
+  solver: {fileID: 0}
+  initialPoolSize: 512
+  particleSize: 0.03
+  particleMaterial: {fileID: 0}
+  createMaterialIfMissing: 1
 --- !u!1 &1606364573
 GameObject:
   m_ObjectHideFlags: 0
@@ -15124,3 +15239,4 @@ SceneRoots:
   - {fileID: 1654657940}
   - {fileID: 875689666}
   - {fileID: 305989517}
+  - {fileID: 121860751}
