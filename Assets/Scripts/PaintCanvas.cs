@@ -47,6 +47,25 @@ public class PaintCanvas : MonoBehaviour
     {
         if (targetRenderer == null)
             targetRenderer = GetComponent<Renderer>();
+
+        // ── جديد: حساب worldSize تلقائياً من حجم الـ Renderer الفعلي ──
+        // بحيث يبقى متطابقاً مع Scale دائماً حتى لو تغيّر حجم اللوحة لاحقاً
+        if (targetRenderer != null)
+        {
+            Bounds b = targetRenderer.bounds;
+            switch (plane)
+            {
+                case CanvasPlane.XY:
+                    worldSize = new Vector2(b.size.x, b.size.y);
+                    break;
+                case CanvasPlane.YZ:
+                    worldSize = new Vector2(b.size.y, b.size.z);
+                    break;
+                default: // XZ
+                    worldSize = new Vector2(b.size.x, b.size.z);
+                    break;
+            }
+        }
     }
 
     private void Start()

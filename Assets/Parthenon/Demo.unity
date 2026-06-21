@@ -6559,7 +6559,7 @@ MonoBehaviour:
   textureWidth: 1024
   textureHeight: 1024
   backgroundColor: {r: 1, g: 1, b: 1, a: 1}
-  worldSize: {x: 1, y: 1}
+  worldSize: {x: 1500, y: 2500}
   plane: 0
   paintOpacity: 0.75
   defaultSplatRadiusWorld: 0.03
@@ -10957,7 +10957,6 @@ GameObject:
   - component: {fileID: 1603322437}
   - component: {fileID: 1603322438}
   - component: {fileID: 1603322431}
-  - component: {fileID: 1603322433}
   m_Layer: 0
   m_Name: _SimulationManager
   m_TagString: Untagged
@@ -10977,30 +10976,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 16ecb96cc5ddc0f39b10fde65c5545d0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CanvasExporter
-  canvasTarget: {fileID: 1603322433}
+  canvasTarget: {fileID: 0}
   modernCanvasTarget: {fileID: 0}
   exportButton: {fileID: 382752035}
---- !u!114 &1603322433
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1603322430}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0284474f61e82d2b0991955498f821db, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PaintSurfaceCanvas
-  canvasRenderer: {fileID: 931284150}
-  textureSize: 512
-  surfaceType: 0
-  tiltAngle: 0
-  sigma: 0.05
-  absorptionCoeff: 0.8
-  surfaceTension: 0.07
-  particleDiameter: 0.01
-  weberRadiusScale: 0.002
 --- !u!4 &1603322436
 Transform:
   m_ObjectHideFlags: 0
@@ -11030,7 +11008,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SimulationUIManager
   pendulumEngine: {fileID: 268129422}
   fluidEngine: {fileID: 0}
-  canvasEngine: {fileID: 1603322433}
+  canvasEngine: {fileID: 0}
   bucketBuilder: {fileID: 268129424}
   lengthSlider: {fileID: 67919125}
   lengthValueText: {fileID: 163604568}
