@@ -2539,8 +2539,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12d0aee28bfb09e499a559ba607dffc7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PaintEmitter
-  bucket: {fileID: 0}
-  solver: {fileID: 0}
+  bucket: {fileID: 268129422}
+  solver: {fileID: 1603322442}
   holeTransform: {fileID: 0}
   holeLocalOffset: {x: 0, y: -0.12, z: 0}
   holeRadius: 0.02
@@ -10950,12 +10950,14 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1603322436}
-  - component: {fileID: 1603322433}
-  - component: {fileID: 1603322431}
+  - component: {fileID: 1603322442}
+  - component: {fileID: 1603322440}
+  - component: {fileID: 1603322441}
+  - component: {fileID: 1603322439}
   - component: {fileID: 1603322437}
   - component: {fileID: 1603322438}
-  - component: {fileID: 1603322440}
-  - component: {fileID: 1603322439}
+  - component: {fileID: 1603322431}
+  - component: {fileID: 1603322433}
   m_Layer: 0
   m_Name: _SimulationManager
   m_TagString: Untagged
@@ -11089,8 +11091,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4962de12d1c9be64b92f032ba272fc43, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CustomBoundary
-  solver: {fileID: 0}
-  paintCanvas: {fileID: 0}
+  solver: {fileID: 1603322442}
+  paintCanvas: {fileID: 931284153}
   bounceDamping: 0.15
   surfaceFriction: 0.9
   killParticleAfterPaint: 1
@@ -11112,11 +11114,53 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 789a6ad8e8d33ba43883e120722bd33f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SPHRenderer
-  solver: {fileID: 0}
+  solver: {fileID: 1603322442}
   initialPoolSize: 512
   particleSize: 0.03
   particleMaterial: {fileID: 0}
   createMaterialIfMissing: 1
+--- !u!114 &1603322441
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1603322430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 912330814c41d674e95343ef7b2e8d1d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SimulationController
+  paintEmitter: {fileID: 268129425}
+  fluidSolver: {fileID: 1603322442}
+  boundary: {fileID: 1603322439}
+  paintCanvas: {fileID: 931284153}
+  sphRenderer: {fileID: 1603322440}
+  autoRun: 1
+--- !u!114 &1603322442
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1603322430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6764957cd3161d5468ea5e655321a3ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SPHFluidSolver
+  smoothingRadius: 0.08
+  particleMass: 0.02
+  restDensity: 1000
+  gasConstant: 2000
+  viscosity: 0.25
+  gravity: {x: 0, y: -9.81, z: 0}
+  damping: 0.02
+  timeStep: 0.0166667
+  useFull3D: 0
+  depthPlane: 0
+  depthDamping: 0.65
+  drawGizmos: 0
 --- !u!1 &1606364573
 GameObject:
   m_ObjectHideFlags: 0
