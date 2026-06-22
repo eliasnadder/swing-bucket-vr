@@ -8,6 +8,7 @@ public class FluidSPHSystem : MonoBehaviour
     public struct SPHParticle
     {
         public Vector3 position;
+        public Vector3 previousPosition;   // ← لكشف عبور المستوى بين الفريمات
         public Vector3 velocity;
         public float density;
         public float pressure;
@@ -133,16 +134,19 @@ public class FluidSPHSystem : MonoBehaviour
 
         for (int i = 0; i < spawnCount; i++)
         {
-            SPHParticle p = new SPHParticle();
-            p.position = spawnBase;
-            p.position += new Vector3(
+            Vector3 spawnPos = spawnBase + new Vector3(
                 Random.Range(-0.02f, 0.02f),
                 0f,
                 Random.Range(-0.02f, 0.02f));
-            p.velocity = pendulum.BucketVelocity + Vector3.down * v_out;
-            p.color = currentPaintColor;
-            p.density = paintDensity0;
-            p.pressure = 0f;
+            SPHParticle p = new SPHParticle
+            {
+                position = spawnPos,
+                previousPosition = spawnPos,  // ← تهيئة السابقة بنفس الموضع
+                velocity = pendulum.BucketVelocity + Vector3.down * v_out,
+                color = currentPaintColor,
+                density = paintDensity0,
+                pressure = 0f
+            };
             particles.Add(p);
         }
 
@@ -176,9 +180,15 @@ public class FluidSPHSystem : MonoBehaviour
         }
 
         // مرور القوى + الاصطدام
+        PaintSurfaceCanvas canvas = PaintSurfaceCanvas.Instance;
+        float canvasY = canvas != null ? canvas.transform.position.y : 0f;
+
         for (int i = particles.Count - 1; i >= 0; i--)
         {
             SPHParticle p = particles[i];
+
+            // احفظ الموضع السابق قبل التحديث
+            p.previousPosition = p.position;
 
             Vector3 F_gravity = Vector3.down * 9.81f;
             Vector3 F_drag = -0.5f * 0.47f * 1.2f * particleArea
@@ -192,18 +202,33 @@ public class FluidSPHSystem : MonoBehaviour
             p.position += p.velocity * dt;
             particles[i] = p;
 
-            // ── FIX: حذف الجسيمات التي تسقط كثيراً لمنع التراكم اللانهائي ──
+            // ── حذف الجسيمات التي تسقط كثيراً لمنع التراكم اللانهائي ──
             if (p.position.y < -50f)
             {
                 particles.RemoveAt(i);
                 continue;
             }
 
-            if (PaintSurfaceCanvas.Instance != null &&
-                PaintSurfaceCanvas.Instance.CheckCollision(p.position))
+            // ── Sweep Test: كشف عبور مستوى اللوحة بين الفريم السابق والحالي ──
+            // هذا يحل مشكلة الجسيمات السريعة التي تتخطى نافذة الكشف الضيقة
+            if (canvas != null)
             {
-                PaintSurfaceCanvas.Instance.PaintAt(p.position, p.velocity, p.color);
-                particles.RemoveAt(i);
+                bool crossedPlane = (p.previousPosition.y > canvasY && p.position.y <= canvasY)
+                                 || (p.previousPosition.y >= canvasY && p.position.y < canvasY);
+
+                if (crossedPlane)
+                {
+                    // احسب نقطة التقاطع الدقيقة مع مستوى Y اللوحة
+                    float t = (canvasY - p.previousPosition.y) / (p.position.y - p.previousPosition.y);
+                    Vector3 hitPoint = Vector3.Lerp(p.previousPosition, p.position, t);
+
+                    if (canvas.CheckCollision(hitPoint))
+                    {
+                        canvas.PaintAt(hitPoint, p.velocity, p.color);
+                        particles.RemoveAt(i);
+                        continue;
+                    }
+                }
             }
         }
     }

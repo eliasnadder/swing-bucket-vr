@@ -11,7 +11,7 @@ public class CustomBoundary : MonoBehaviour
     public float surfaceFriction = 0.9f;
     public bool killParticleAfterPaint = true;
     public float collisionPadding = 0.002f;
-    public float splatRadiusWorld = 0.03f;
+    public float splatRadiusWorld = 1.5f;
 
     [Header("Optional Box Bounds")]
     public bool useBoxBounds;
@@ -19,30 +19,61 @@ public class CustomBoundary : MonoBehaviour
     public Vector3 boxSize = new Vector3(10f, 10f, 10f);
     public float boxBounce = 0.2f;
 
+    // ── موضع كل جسيم في الفريم السابق لكشف العبور (sweep test) ──
+    private readonly System.Collections.Generic.Dictionary<int, Vector3> previousPositions
+        = new System.Collections.Generic.Dictionary<int, Vector3>();
+
     public void ResolveContacts(float dt)
     {
         if (solver == null)
             return;
+
+        if (paintCanvas == null)
+        {
+            previousPositions.Clear();
+            return;
+        }
+
+        // احسب Y اللوحة مرة واحدة لكل الجسيمات
+        float canvasY = paintCanvas.transform.position.y;
 
         for (int i = solver.ParticleCount - 1; i >= 0; i--)
         {
             SPHParticle particle = solver.GetParticle(i);
             bool painted = false;
 
-            if (paintCanvas != null && paintCanvas.IsWorldPointOnCanvas(particle.position) && particle.velocity.y <= 0f)
-            {
-                paintCanvas.QueueSplat(
-                    particle.position,
-                    particle.color,
-                    splatRadiusWorld,
-                    solver.viscosity,
-                    particle.velocity);
+            // ── Sweep Test: هل عبر الجسيم مستوى Y اللوحة منذ الفريم الأخير؟ ──
+            bool hasPrev = previousPositions.TryGetValue(i, out Vector3 prevPos);
+            Vector3 currPos = particle.position;
 
-                painted = true;
-                particle.position.y += collisionPadding;
-                particle.velocity.y = Mathf.Abs(particle.velocity.y) * bounceDamping;
-                particle.velocity.x *= surfaceFriction;
-                particle.velocity.z *= surfaceFriction;
+            bool crossedDown = hasPrev
+                ? (prevPos.y > canvasY && currPos.y <= canvasY)
+                : currPos.y <= canvasY + paintCanvas.contactThickness;
+
+            if (crossedDown && particle.velocity.y <= 0f)
+            {
+                // احسب نقطة التقاطع الدقيقة على مستوى Y اللوحة
+                Vector3 hitPoint = hasPrev
+                    ? Vector3.Lerp(prevPos, currPos, (canvasY - prevPos.y) / (currPos.y - prevPos.y))
+                    : currPos;
+                hitPoint.y = canvasY;
+
+                // تحقق من أن النقطة داخل حدود اللوحة (XZ فقط)
+                if (paintCanvas.TryWorldToPixel(hitPoint, out _, out _))
+                {
+                    paintCanvas.QueueSplat(
+                        hitPoint,
+                        particle.color,
+                        splatRadiusWorld,
+                        solver.viscosity,
+                        particle.velocity);
+
+                    painted = true;
+                    particle.position.y = canvasY + collisionPadding;
+                    particle.velocity.y = Mathf.Abs(particle.velocity.y) * bounceDamping;
+                    particle.velocity.x *= surfaceFriction;
+                    particle.velocity.z *= surfaceFriction;
+                }
             }
 
             if (useBoxBounds)
@@ -51,11 +82,20 @@ public class CustomBoundary : MonoBehaviour
             if (painted && killParticleAfterPaint)
             {
                 solver.RemoveParticleAt(i);
+                previousPositions.Remove(i);
                 continue;
             }
 
             solver.SetParticle(i, particle);
+            previousPositions[i] = particle.position;
         }
+
+        // نظّف مواضع الجسيمات المحذوفة (indices فوق العدد الحالي)
+        var keysToRemove = new System.Collections.Generic.List<int>();
+        foreach (var key in previousPositions.Keys)
+            if (key >= solver.ParticleCount) keysToRemove.Add(key);
+        foreach (var key in keysToRemove)
+            previousPositions.Remove(key);
     }
 
     private void ResolveBoxBounds(ref SPHParticle particle)

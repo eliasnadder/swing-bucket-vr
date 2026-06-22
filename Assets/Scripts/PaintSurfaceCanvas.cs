@@ -77,14 +77,14 @@ public class PaintSurfaceCanvas : MonoBehaviour
     // (Section 2.5.2)
     public bool CheckCollision(Vector3 worldPos)
     {
-        // ── المرحلة الواسعة AABB ──
+        // ── المرحلة الواسعة AABB (مع هامش فقط على المحاور الأفقية) ──
+        // نتجنب توسيع Y لأننا نستخدم sweep test في FluidSPHSystem
         Bounds expanded = aabbBounds;
-        expanded.Expand(0.15f);              // هامش بسيط لمنع التخطي
-        if (!expanded.Contains(worldPos)) return false;
+        expanded.Expand(new Vector3(0.15f, 0f, 0.15f));
+        if (!expanded.Contains(new Vector3(worldPos.x, aabbBounds.center.y, worldPos.z)))
+            return false;
 
-        // ── FIX: فحص Y مباشر بدل transform.up المعتمد على الدوران ──
-        // canvas على الأرض دائماً، فنتحقق من اقتراب الجسيم من مستوى Y للوحة
-        return worldPos.y <= transform.position.y + 0.05f;
+        return true;
     }
 
     public Vector3 GetSurfaceNormal() => transform.up;

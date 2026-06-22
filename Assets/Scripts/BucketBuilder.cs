@@ -10,7 +10,7 @@ using UnityEngine;
 public class BucketBuilder : MonoBehaviour
 {
     [Header("References")]
-    public FluidSPHSystem fluidSystem;
+    public SPHFluidSolver fluidSystem;   // ← تم التحويل من FluidSPHSystem
     [Tooltip("Optional imported bucket prefab/FBX. If assigned, this model is used instead of the procedural shell.")]
     public GameObject bucketModelPrefab;
     [Tooltip("Local position offset for the imported model.")]
@@ -66,7 +66,7 @@ public class BucketBuilder : MonoBehaviour
     void Start()
     {
         if (fluidSystem == null)
-            fluidSystem = FindAnyObjectByType<FluidSPHSystem>();
+            fluidSystem = FindAnyObjectByType<SPHFluidSolver>();
 
         var existingFilter = GetComponent<MeshFilter>();
         var existingRenderer = GetComponent<MeshRenderer>();
@@ -294,7 +294,7 @@ public class BucketBuilder : MonoBehaviour
         if (fluidSystem == null || liquidFilter == null || paintRenderer == null)
             return;
 
-        float fillT = Mathf.Clamp01(fluidSystem.h_paint / Mathf.Max(0.001f, maxPaintHeight));
+        float fillT = Mathf.Clamp01(fluidSystem.PaintHeight / Mathf.Max(0.001f, maxPaintHeight));
         Color paintColor = fluidSystem.currentPaintColor;
         paintColor.a = 0.94f;
 

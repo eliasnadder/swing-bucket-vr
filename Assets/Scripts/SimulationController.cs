@@ -49,8 +49,11 @@ public class SimulationController : MonoBehaviour
 
         float dt = Time.fixedDeltaTime;
 
-        if (paintEmitter != null)
-            paintEmitter.Emit(dt);
+        // SPHFluidSolver.StepSimulation handles its own Torricelli emission internally.
+        // PaintEmitter.Emit is kept for backward-compat but disabled here to avoid
+        // double-spawning when SPHFluidSolver already emits from EmitParticles().
+        // if (paintEmitter != null)
+        //     paintEmitter.Emit(dt);
 
         if (fluidSolver != null)
             fluidSolver.StepSimulation(dt);
@@ -58,6 +61,6 @@ public class SimulationController : MonoBehaviour
         if (boundary != null)
             boundary.ResolveContacts(dt);
         if (Time.frameCount % 30 == 0)
-            Debug.Log($"ParticleCount={fluidSolver.ParticleCount}");
+            Debug.Log($"ParticleCount={fluidSolver?.ParticleCount ?? 0}");
     }
 }
