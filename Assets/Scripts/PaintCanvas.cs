@@ -102,42 +102,38 @@ public class PaintCanvas : MonoBehaviour
     /// </summary>
     private void RefreshBounds()
     {
+        // نستخدم transform.position دائماً كـ center للـ bounds لضمان الدقة
+        // حتى عند وجود renderer، لأن renderer.bounds.center قد يختلف بسبب Scale
+        Vector3 c = transform.position;
+
+        float sizeX, sizeZ;
+
         if (targetRenderer != null)
         {
+            // نأخذ الحجم من renderer لكن المركز من transform
             Bounds rb = targetRenderer.bounds;
-            // For XZ: centre = (cx, cy, cz), size built from X and Z extents only.
-            // We ignore Y so a thick Cube doesn't corrupt the mapping.
-            Vector3 c = rb.center;
-            switch (plane)
-            {
-                case CanvasPlane.XY:
-                    cachedBounds = new Bounds(c, new Vector3(rb.size.x, rb.size.y, 1f));
-                    break;
-                case CanvasPlane.YZ:
-                    cachedBounds = new Bounds(c, new Vector3(1f, rb.size.y, rb.size.z));
-                    break;
-                default: // XZ
-                    cachedBounds = new Bounds(c, new Vector3(rb.size.x, 1f, rb.size.z));
-                    break;
-            }
+            sizeX = rb.size.x;
+            sizeZ = rb.size.z;
         }
         else
         {
-            // Manual fallback: use worldSize centred on transform.position
-            Vector3 c = transform.position;
-            switch (plane)
-            {
-                case CanvasPlane.XY:
-                    cachedBounds = new Bounds(c, new Vector3(worldSize.x, worldSize.y, 1f));
-                    break;
-                case CanvasPlane.YZ:
-                    cachedBounds = new Bounds(c, new Vector3(1f, worldSize.x, worldSize.y));
-                    break;
-                default: // XZ
-                    cachedBounds = new Bounds(c, new Vector3(worldSize.x, 1f, worldSize.y));
-                    break;
-            }
+            sizeX = worldSize.x;
+            sizeZ = worldSize.y;
         }
+
+        switch (plane)
+        {
+            case CanvasPlane.XY:
+                cachedBounds = new Bounds(c, new Vector3(sizeX, sizeZ, 1f));
+                break;
+            case CanvasPlane.YZ:
+                cachedBounds = new Bounds(c, new Vector3(1f, sizeX, sizeZ));
+                break;
+            default: // XZ
+                cachedBounds = new Bounds(c, new Vector3(sizeX, 1f, sizeZ));
+                break;
+        }
+
         boundsReady = true;
     }
 
@@ -200,32 +196,42 @@ public class PaintCanvas : MonoBehaviour
         pixel         = default;
         signedDistance = 0f;
 
-        if (!boundsReady) RefreshBounds();
-        Bounds b = cachedBounds;
+        // ── يستخدم transform.localScale مباشرة لحساب الحجم الفعلي ──
+        // هذا يعمل بغض النظر عن worldSize في Inspector
+        Vector3 cp = transform.position;
+
+        // للـ Quad/Plane الافتراضي: local size = 1×1، world size = scale.x × scale.z
+        // للـ Cube: local size = 1×1×1، world size = scale.x × scale.z
+        float actualSizeX = Mathf.Abs(transform.lossyScale.x);
+        float actualSizeZ = Mathf.Abs(transform.lossyScale.z);
+
+        // إذا كان Quad (Unity built-in) أو Plane، يجب ضرب scale في mesh size
+        // Quad local = 1×1، Plane local = 10×10
+        // نتحقق من worldSize كـ override إذا كان مختلفاً
+        float sizeX = worldSize.x > 0.1f ? worldSize.x : actualSizeX;
+        float sizeZ = worldSize.y > 0.1f ? worldSize.y : actualSizeZ;
+
+        float halfX = sizeX * 0.5f;
+        float halfZ = sizeZ * 0.5f;
 
         float u, v;
 
         switch (plane)
         {
             case CanvasPlane.XY:
-                if (b.size.x < 0.0001f || b.size.y < 0.0001f) return false;
-                u             = (worldPoint.x - b.min.x) / b.size.x;
-                v             = (worldPoint.y - b.min.y) / b.size.y;
-                signedDistance = worldPoint.z - transform.position.z;
+                u             = (worldPoint.x - (cp.x - halfX)) / sizeX;
+                v             = (worldPoint.y - (cp.y - halfZ)) / sizeZ;
+                signedDistance = worldPoint.z - cp.z;
                 break;
-
             case CanvasPlane.YZ:
-                if (b.size.y < 0.0001f || b.size.z < 0.0001f) return false;
-                u             = (worldPoint.y - b.min.y) / b.size.y;
-                v             = (worldPoint.z - b.min.z) / b.size.z;
-                signedDistance = worldPoint.x - transform.position.x;
+                u             = (worldPoint.y - (cp.y - halfX)) / sizeX;
+                v             = (worldPoint.z - (cp.z - halfZ)) / sizeZ;
+                signedDistance = worldPoint.x - cp.x;
                 break;
-
-            default: // XZ — horizontal canvas (floor/table)
-                if (b.size.x < 0.0001f || b.size.z < 0.0001f) return false;
-                u             = (worldPoint.x - b.min.x) / b.size.x;
-                v             = (worldPoint.z - b.min.z) / b.size.z;
-                signedDistance = worldPoint.y - transform.position.y;
+            default: // XZ
+                u             = (worldPoint.x - (cp.x - halfX)) / sizeX;
+                v             = (worldPoint.z - (cp.z - halfZ)) / sizeZ;
+                signedDistance = worldPoint.y - cp.y;
                 break;
         }
 
@@ -284,73 +290,112 @@ public class PaintCanvas : MonoBehaviour
         if (!TryWorldToPixel(worldPosition, out Vector2Int center, out float signedDistance))
             return;
 
-        float speed = impactVelocity.magnitude;
+        // DEBUG
+#if UNITY_EDITOR
+        Debug.Log($"[SPLAT] worldPos=({worldPosition.x:F1},{worldPosition.z:F1}) pixel=({center.x},{center.y}) " +
+                  $"canvas=({transform.position.x:F1},{transform.position.z:F1}) scale=({transform.lossyScale.x:F1},{transform.lossyScale.z:F1})");
+#endif
 
-        // Weber model
-        float We            = 1200f * speed * speed * particleDiameter / Mathf.Max(0.0001f, surfaceTension);
-        float effectiveSigma = sigma * (1f + weberRadiusScale * We) * Absorption;
-        float impactEnergy  = speed * Absorption;
+        float impactSpeed = Mathf.Abs(impactVelocity.y);
 
-        float radiusPx;
-        if (radiusWorld > 0f)
+        // ── مطابق index.html تماماً: radius = size * 25 + impactSpeed * 1.5 ──
+        // نسبة المقياس: index.html يستخدم canvas=20 وحدة/1024px
+        // نطبّق نفس المعادلة مع تصحيح النسبة بين المشهدين
+        float canvasSpan  = boundsReady && cachedBounds.size.x > 0.001f ? cachedBounds.size.x : 150f;
+        float scaleRatio  = 20f / canvasSpan;
+        float sizePx      = radiusWorld * scaleRatio * 25f;
+        // نقسم impactSpeed على نسبة الارتفاع لأن السطل في Unity أعلى بكثير من index.html
+        float scaledImpact = impactSpeed * (20f / canvasSpan) * 1.5f;
+        float radiusPx    = Mathf.Max(sizePx, 0.5f) + scaledImpact;
+        radiusPx          = Mathf.Clamp(radiusPx, 1f, textureWidth * 0.1f);
+
+        int tiltShiftInt = Mathf.RoundToInt(
+            Mathf.Sin(tiltAngle * Mathf.Deg2Rad) * radiusPx * Friction);
+
+        // بقعة رئيسية بـ radial gradient
+        DrawGradientCircle(center.x, center.y + tiltShiftInt, radiusPx, color, 1f);
+
+        // Droplets عند السرعة العالية — مطابق index.html
+        if (impactSpeed > 3f)
         {
-            radiusPx  = Mathf.Max(1f, WorldRadiusToPixels(radiusWorld));
-            radiusPx *= 1f + viscosity * viscosityRadiusScale;
-            radiusPx *= 1f + Mathf.Clamp01(speed) * 0.15f;
-        }
-        else
-        {
-            radiusPx = Mathf.Clamp(
-                Mathf.RoundToInt(effectiveSigma * textureWidth * Mathf.Max(impactEnergy, 0.1f)),
-                2, textureWidth / 4);
-        }
-
-        // Humidity spread
-        if (SPHFluidSolver.Instance != null)
-            radiusPx *= SPHFluidSolver.Instance.HumiditySpreadFactor;
-
-        // Tilt shift
-        float tiltRad  = tiltAngle * Mathf.Deg2Rad;
-        int   tiltShift = Mathf.RoundToInt(Mathf.Sin(tiltRad) * radiusPx * Friction);
-
-        int minX = Mathf.Max(0, Mathf.FloorToInt(center.x - radiusPx));
-        int maxX = Mathf.Min(textureWidth  - 1, Mathf.CeilToInt(center.x + radiusPx));
-        int minY = Mathf.Max(0, Mathf.FloorToInt(center.y - radiusPx + tiltShift));
-        int maxY = Mathf.Min(textureHeight - 1, Mathf.CeilToInt(center.y + radiusPx + tiltShift));
-
-        float radiusSq = radiusPx * radiusPx;
-        float strength = paintOpacity * Absorption
-            * Mathf.Clamp01(1f - Mathf.Abs(signedDistance) / Mathf.Max(contactThickness, 0.0001f));
-
-        for (int y = minY; y <= maxY; y++)
-        {
-            for (int x = minX; x <= maxX; x++)
+            int droplets = Mathf.Min(Mathf.FloorToInt(impactSpeed / 2f), 12);
+            for (int d = 0; d < droplets; d++)
             {
-                float dx = x - center.x;
-                float dy = y - (center.y + tiltShift);
-                float dq = dx * dx + dy * dy;
-                if (dq > radiusSq) continue;
-
-                float falloff = Mathf.Exp(-(dq / Mathf.Max(1f, radiusSq)) * 2.2f);
-                float blend   = Mathf.Clamp01(falloff * strength);
-                int   idx     = y * textureWidth + x;
-                pixelBuffer[idx] = Color.Lerp(pixelBuffer[idx], color, blend);
+                float angle   = Random.value * Mathf.PI * 2f;
+                float dist    = Random.value * radiusPx * 2f;
+                int   offX    = Mathf.RoundToInt(Mathf.Cos(angle) * dist);
+                int   offY    = Mathf.RoundToInt(Mathf.Sin(angle) * dist);
+                float dropRad = Random.value * (radiusPx / 5f);
+                DrawGradientCircle(
+                    center.x + offX,
+                    center.y + tiltShiftInt + offY,
+                    dropRad,
+                    color,
+                    0.67f);
             }
         }
 
         dirty = true;
     }
 
+    /// <summary>
+    /// يرسم دائرة بـ radial gradient (كثيف في المركز → شفاف في الحافة)
+    /// مطابق لـ createRadialGradient في index.html
+    /// </summary>
+    private void DrawGradientCircle(int cx, int cy, float radiusPx, Color color, float alphaMultiplier)
+    {
+        if (radiusPx < 0.5f) return;
+
+        int minX = Mathf.Max(0, Mathf.FloorToInt(cx - radiusPx));
+        int maxX = Mathf.Min(textureWidth  - 1, Mathf.CeilToInt(cx + radiusPx));
+        int minY = Mathf.Max(0, Mathf.FloorToInt(cy - radiusPx));
+        int maxY = Mathf.Min(textureHeight - 1, Mathf.CeilToInt(cy + radiusPx));
+
+        float radiusSq = radiusPx * radiusPx;
+
+        for (int y = minY; y <= maxY; y++)
+        {
+            for (int x = minX; x <= maxX; x++)
+            {
+                float dx = x - cx;
+                float dy = y - cy;
+                float distSq = dx * dx + dy * dy;
+                if (distSq > radiusSq) continue;
+
+                float t = Mathf.Sqrt(distSq) / radiusPx; // 0=مركز, 1=حافة
+
+                // gradient: stop 0→full color, stop 0.6→50% alpha, stop 1→0 alpha
+                // مطابق: addColorStop(0, hex), addColorStop(0.6, hex+'80'), addColorStop(1, hex+'00')
+                float alpha;
+                if (t <= 0.6f)
+                    alpha = Mathf.Lerp(1f, 0.5f, t / 0.6f);
+                else
+                    alpha = Mathf.Lerp(0.5f, 0f, (t - 0.6f) / 0.4f);
+
+                alpha *= paintOpacity * alphaMultiplier;
+                alpha  = Mathf.Clamp01(alpha);
+
+                int idx = y * textureWidth + x;
+                pixelBuffer[idx] = Color.Lerp(pixelBuffer[idx], color, alpha);
+            }
+        }
+    }
+
     private float WorldRadiusToPixels(float radiusWorld)
     {
         if (!boundsReady) RefreshBounds();
         Bounds b = cachedBounds;
+
+        // استخدم المحور الأكبر كمرجع للتحويل (مطابق منطق index.html)
         float span = plane switch
         {
-            CanvasPlane.XY => Mathf.Min(b.size.x, b.size.y),
-            CanvasPlane.YZ => Mathf.Min(b.size.y, b.size.z),
-            _              => Mathf.Min(b.size.x, b.size.z),
+            CanvasPlane.XY => Mathf.Max(b.size.x, b.size.y),
+            CanvasPlane.YZ => Mathf.Max(b.size.y, b.size.z),
+            _              => Mathf.Max(b.size.x, b.size.z),
         };
+
+        // index.html: radius = size * 25، حيث size بوحدات المشهد
+        // Unity: نحوّل radiusWorld → pixels بنفس النسبة
         return radiusWorld / Mathf.Max(0.0001f, span) * textureWidth;
     }
 

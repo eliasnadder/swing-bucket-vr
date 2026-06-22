@@ -2580,7 +2580,7 @@ MonoBehaviour:
   initialVolume: 0.5
   maxPaintHeight: 0.3
   Cd: 0.6
-  orificeDiameter: 0.05
+  orificeDiameter: 0.001
   paintDensity: 1200
   currentPaintColor: {r: 1, g: 0, b: 0, a: 1}
   temperature: 25
@@ -2589,6 +2589,8 @@ MonoBehaviour:
   windDirection: {x: 1, y: 0, z: 0}
   windCoeff: 0.5
   drawGizmos: 0
+  particlesPerVolumeUnit: 50000
+  maxSpawnPerFrame: 20
   pendulum: {fileID: 268129422}
   bucketBuilder: {fileID: 268129424}
 --- !u!1 &289119969
@@ -6575,7 +6577,7 @@ Transform:
   m_GameObject: {fileID: 931284148}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 13, z: -120}
+  m_LocalPosition: {x: 0, y: 13, z: -100}
   m_LocalScale: {x: 150, y: 1, z: 250}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6599,17 +6601,17 @@ MonoBehaviour:
   backgroundColor: {r: 1, g: 1, b: 1, a: 1}
   worldSize: {x: 150, y: 250}
   plane: 0
-  flipU: 0
+  flipU: 1
   flipV: 0
   swapUV: 0
   surfaceType: 0
   tiltAngle: 0
   surfaceTension: 0.07
-  particleDiameter: 0.01
+  particleDiameter: 0.03
   weberRadiusScale: 0.002
   sigma: 0.05
   paintOpacity: 0.75
-  defaultSplatRadiusWorld: 3
+  defaultSplatRadiusWorld: 0.5
   viscosityRadiusScale: 0.15
   contactThickness: 2
 --- !u!1 &932867577
@@ -10997,7 +10999,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1603322436}
-  - component: {fileID: 1603322440}
   - component: {fileID: 1603322441}
   - component: {fileID: 1603322439}
   - component: {fileID: 1603322437}
@@ -11121,28 +11122,12 @@ MonoBehaviour:
   surfaceFriction: 0.9
   killParticleAfterPaint: 1
   collisionPadding: 0.2
-  splatRadiusWorld: 8
+  splatRadiusWorld: 0
+  splatRadiusMultiplier: 10
   useBoxBounds: 0
   boxCenter: {x: 0, y: 0, z: 0}
   boxSize: {x: 10, y: 10, z: 10}
   boxBounce: 0.2
---- !u!114 &1603322440
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1603322430}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 789a6ad8e8d33ba43883e120722bd33f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SPHRenderer
-  solver: {fileID: 268129426}
-  initialPoolSize: 512
-  particleSize: 0.03
-  particleMaterial: {fileID: 0}
-  createMaterialIfMissing: 1
 --- !u!114 &1603322441
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11159,7 +11144,7 @@ MonoBehaviour:
   fluidSolver: {fileID: 268129426}
   boundary: {fileID: 1603322439}
   paintCanvas: {fileID: 931284153}
-  sphRenderer: {fileID: 1603322440}
+  sphRenderer: {fileID: 121860750}
   autoRun: 1
 --- !u!1 &1606364573
 GameObject:

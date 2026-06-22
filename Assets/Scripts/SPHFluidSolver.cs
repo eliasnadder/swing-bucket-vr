@@ -50,6 +50,12 @@ public class SPHFluidSolver : MonoBehaviour
     [Header("Debug")]
     public bool drawGizmos = false;
 
+    [Header("Emission Tuning")]
+    [Tooltip("عدد الجسيمات لكل وحدة حجم — كلما زاد كلما كان التدفق أكثف مرئياً")]
+    public float particlesPerVolumeUnit = 50000f;
+    [Tooltip("أقصى عدد جسيمات تُصدر في فريم واحد")]
+    public int   maxSpawnPerFrame = 20;
+
     // ── Private state ──
     private float currentVolume;
     private float h_paint;                // ارتفاع الطلاء الحالي داخل السطل
@@ -152,10 +158,9 @@ public class SPHFluidSolver : MonoBehaviour
         pendulum.UpdateBucketMass(volumeToEmit * paintDensity);
         h_paint = Mathf.Max(0f, (currentVolume / Mathf.Max(0.0001f, initialVolume)) * initialPaintHeight);
 
-        // عدد الجسيمات المطلوب إصدارها
-        float particlesPerVolumeUnit = 50000f;
+        // عدد الجسيمات المطلوب إصدارها — يتناسب مع Q (المتحكم به بـ orificeDiameter)
         emissionAccumulator += Q * particlesPerVolumeUnit * dt;
-        int spawnCount = Mathf.Min(Mathf.FloorToInt(emissionAccumulator), 20);
+        int spawnCount = Mathf.Min(Mathf.FloorToInt(emissionAccumulator), maxSpawnPerFrame);
         emissionAccumulator -= spawnCount;
 
         Vector3 spawnBase = bucketBuilder != null

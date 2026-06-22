@@ -11,7 +11,10 @@ public class CustomBoundary : MonoBehaviour
     public float surfaceFriction = 0.9f;
     public bool killParticleAfterPaint = true;
     public float collisionPadding = 0.002f;
-    public float splatRadiusWorld = 1.5f;
+    [Tooltip("نصف قطر البقعة على الـ Canvas بوحدات Unity. 0 = يُحسب تلقائياً من قطر الفتحة")]
+    public float splatRadiusWorld = 0f;
+    [Tooltip("معامل مضاعفة نصف القطر المحسوب من قطر الفتحة (يعمل فقط عندما splatRadiusWorld=0)")]
+    public float splatRadiusMultiplier = 50f;
 
     [Header("Optional Box Bounds")]
     public bool useBoxBounds;
@@ -61,11 +64,17 @@ public class CustomBoundary : MonoBehaviour
                 // تحقق من أن النقطة داخل حدود اللوحة (XZ فقط)
                 if (paintCanvas.TryWorldToPixel(hitPoint, out _, out _))
                 {
+                    // radiusWorld = orificeDiameter مباشرة
+                    // مطابق index.html: size = holeSize * random(0.5..1)
+                    // نمرر قيمة عشوائية بنفس النطاق
+                    float orificeD    = solver != null ? solver.orificeDiameter : 0.3f;
+                    float radiusWorld = orificeD * (0.5f + Random.value * 0.5f);
+
                     paintCanvas.QueueSplat(
                         hitPoint,
                         particle.color,
-                        splatRadiusWorld,
-                        solver.viscosity,
+                        radiusWorld,
+                        solver != null ? solver.viscosity : 0f,
                         particle.velocity);
 
                     painted = true;
