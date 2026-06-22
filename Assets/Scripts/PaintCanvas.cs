@@ -132,26 +132,28 @@ public class PaintCanvas : MonoBehaviour
         pixel = default;
         signedDistance = 0f;
 
-        Vector3 local = transform.InverseTransformPoint(worldPoint);
+        // ✨ FIX: استخدم world coordinates + bounds الفعلية (مثل Three.js)
+        // كان الكود السابق يخلط local coordinates مع worldSize مما يكسر UV لأي scale ≠ 1
+        Bounds b = targetRenderer != null ? targetRenderer.bounds : new Bounds(transform.position, new Vector3(worldSize.x, 0.1f, worldSize.y));
         float u;
         float v;
 
         switch (plane)
         {
             case CanvasPlane.XY:
-                u = (local.x / worldSize.x) + 0.5f;
-                v = (local.y / worldSize.y) + 0.5f;
-                signedDistance = local.z;
+                u = (worldPoint.x - b.min.x) / b.size.x;
+                v = (worldPoint.y - b.min.y) / b.size.y;
+                signedDistance = worldPoint.z - transform.position.z;
                 break;
             case CanvasPlane.YZ:
-                u = (local.y / worldSize.x) + 0.5f;
-                v = (local.z / worldSize.y) + 0.5f;
-                signedDistance = local.x;
+                u = (worldPoint.y - b.min.y) / b.size.y;
+                v = (worldPoint.z - b.min.z) / b.size.z;
+                signedDistance = worldPoint.x - transform.position.x;
                 break;
             default:
-                u = (local.x / worldSize.x) + 0.5f;
-                v = (local.z / worldSize.y) + 0.5f;
-                signedDistance = local.y;
+                u = (worldPoint.x - b.min.x) / b.size.x;
+                v = (worldPoint.z - b.min.z) / b.size.z;
+                signedDistance = worldPoint.y - transform.position.y;
                 break;
         }
 

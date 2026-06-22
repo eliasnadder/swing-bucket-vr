@@ -82,21 +82,20 @@ public class PaintSurfaceCanvas : MonoBehaviour
         expanded.Expand(0.15f);              // هامش بسيط لمنع التخطي
         if (!expanded.Contains(worldPos)) return false;
 
-        // ── المرحلة الدقيقة: المسافة الموقعة إلى مستوى اللوحة ──
-        // نقطة التقاطع تحدث حين ينتقل الجسيم إلى الجهة الأخرى من المستوى
-        Vector3 toPoint = worldPos - transform.position;
-        float signedDist = Vector3.Dot(toPoint, transform.up);
-        return signedDist <= 0.05f;          // عتبة 5 سم
+        // ── FIX: فحص Y مباشر بدل transform.up المعتمد على الدوران ──
+        // canvas على الأرض دائماً، فنتحقق من اقتراب الجسيم من مستوى Y للوحة
+        return worldPos.y <= transform.position.y + 0.05f;
     }
 
     public Vector3 GetSurfaceNormal() => transform.up;
 
     public void PaintAt(Vector3 worldPos, Vector3 impactVelocity, Color paintColor)
     {
-        // تحويل المسقط العالمي ثلاثي الأبعاد إلى إحداثيات ثنائية الأبعاد على الـ Texture UV
-        Vector3 localPos = transform.InverseTransformPoint(worldPos);
-        float u = localPos.x + 0.5f;
-        float v = localPos.z + 0.5f;
+        // ✨ FIX: استخدم bounds الفعلية للـ renderer (مطابق لنهج Three.js)
+        // كان الكود السابق يفترض أن bounds اللوحة ±0.5 (مثل Quad) لكن Plane الافتراضي ±5
+        Bounds b = canvasRenderer.bounds;
+        float u = (worldPos.x - b.min.x) / b.size.x;
+        float v = (worldPos.z - b.min.z) / b.size.z;
 
         int centerX = Mathf.RoundToInt(u * textureSize);
         int centerY = Mathf.RoundToInt(v * textureSize);

@@ -6559,12 +6559,12 @@ MonoBehaviour:
   textureWidth: 1024
   textureHeight: 1024
   backgroundColor: {r: 1, g: 1, b: 1, a: 1}
-  worldSize: {x: 1500, y: 2500}
+  worldSize: {x: 150, y: 250}
   plane: 0
   paintOpacity: 0.75
-  defaultSplatRadiusWorld: 0.03
+  defaultSplatRadiusWorld: 3
   viscosityRadiusScale: 0.15
-  contactThickness: 0.03
+  contactThickness: 2
 --- !u!1 &932867577
 GameObject:
   m_ObjectHideFlags: 0
@@ -11074,8 +11074,8 @@ MonoBehaviour:
   bounceDamping: 0.15
   surfaceFriction: 0.9
   killParticleAfterPaint: 1
-  collisionPadding: 0.002
-  splatRadiusWorld: 0.03
+  collisionPadding: 0.2
+  splatRadiusWorld: 1.5
   useBoxBounds: 0
   boxCenter: {x: 0, y: 0, z: 0}
   boxSize: {x: 10, y: 10, z: 10}
@@ -11135,7 +11135,7 @@ MonoBehaviour:
   gravity: {x: 0, y: -9.81, z: 0}
   damping: 0.02
   timeStep: 0.0166667
-  useFull3D: 0
+  useFull3D: 1
   depthPlane: 0
   depthDamping: 0.65
   drawGizmos: 0
