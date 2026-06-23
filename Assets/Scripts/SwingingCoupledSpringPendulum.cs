@@ -20,9 +20,9 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float g = 9.81f;
     public float b = 0.1f;
 
-    [Header("Spring-Damper Rope")]
-    public float k_rope = 50f;
-    public float c_rope = 5f;
+    [Header("Spring-Damper Rope (Three.js style)")]
+    public float k_rope = 500f;
+    public float c_rope = 3f;
 
     [Header("Wind Parameters")]
     public float windSpeed = 0f;
@@ -38,9 +38,10 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     [Tooltip("في وضع التحرير فقط (Edit Mode): يحسب θ₀ وL0 وφ₀ تلقائياً من موضع السطل الحالي نسبة لنقطة التعليق الثابتة، بدلاً من تحريك نقطة التعليق نفسها")]
     public bool autoSyncFromScenePosition = true;
 
-    // حالة النظام
+    // حالة النظام - four angular variables only, radial handled by constraint
     private float theta, omega_theta, phi, omega_phi;
-    private float currentLength, ropeVelocity, currentMass;
+    private float currentMass;
+    private float currentLength;
     private Vector3 previousPosition;
     private bool firstFrame = true;
 
@@ -52,24 +53,20 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float CurrentLength => currentLength;
     public float CurrentTheta => theta;
 
-    private struct State { public float t, o_t, p, o_p, L, dL; }
-    private struct Derivs { public float d_t, d_ot, d_p, d_op, d_L, d_dL; }
+    private struct State { public float t, o_t, p, o_p; }
+    private struct Derivs { public float d_t, d_ot, d_p, d_op; }
 
     // ─────────────────────────────────────────
     void Start()
     {
-        if (!Application.isPlaying) return; // أمان إضافي بسبب [ExecuteAlways]
+        if (!Application.isPlaying) return;
 
         currentMass = m0;
-        currentLength = L0;
-        ropeVelocity = 0f;
-
         theta = initialTheta * Mathf.Deg2Rad;
         omega_theta = initialOmega;
         phi = initialPhi * Mathf.Deg2Rad;
         omega_phi = 0f;
 
-        // ── نقطة التعليق ثابتة دائماً. إن لم تُعيَّن، أنشئ واحدة تلقائياً فوق السطل الحالي ──
         if (pivotPoint == null)
         {
             var goPivot = new GameObject("Auto_Pivot");
@@ -78,13 +75,11 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
             pivotPoint = goPivot.transform;
         }
 
-        // ── السطل دائماً يُحسب من نقطة التعليق + الزاوية والطول ──
-        // نقطة التعليق لا تتغيّر أبداً بسبب موضع السطل بعد الآن
-        transform.position = pivotPoint.position + SphericalToCartesian(currentLength, theta, phi);
-
+        transform.position = pivotPoint.position + SphericalToCartesian(L0, theta, phi);
         previousPosition = transform.position;
         BucketVelocity = Vector3.zero;
         EffectiveGravity = g;
+        currentLength = L0;
 
         SetupLineRenderer();
     }
@@ -98,7 +93,19 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
              L * Mathf.Sin(t) * Mathf.Sin(p));
     }
 
-    // ── يعمل فقط في وضع التحرير: يقرأ موضع السطل الحالي ويحسب θ₀/L0/φ₀ المطابقة ──
+    static Vector3 ComputeAngularVelocity(float L, float t, float p, float ot, float op)
+    {
+        float sinT = Mathf.Sin(t);
+        float cosT = Mathf.Cos(t);
+        float sinP = Mathf.Sin(p);
+        float cosP = Mathf.Cos(p);
+        return new Vector3(
+            L * (cosT * cosP * ot - sinT * sinP * op),
+            L * sinT * ot,
+            L * (cosT * sinP * ot + sinT * cosP * op)
+        );
+    }
+
     void Update()
     {
         if (Application.isPlaying)
@@ -114,7 +121,7 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     {
         Vector3 v = transform.position - pivotPoint.position;
         float len = v.magnitude;
-        if (len < 0.01f) return; // تجنّب القسمة على صفر لو السطل فوق نقطة التعليق تماماً
+        if (len < 0.01f) return;
 
         float t = Mathf.Acos(Mathf.Clamp(-v.y / len, -1f, 1f));
         float p = Mathf.Atan2(v.z, v.x);
@@ -155,90 +162,105 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     Vector3 GetWindForce() =>
         windDirection.normalized * windCoeff * windSpeed * windSpeed;
 
-    // ─── مشتقات RK4 ───
-    Derivs CalculateDerivatives(State s)
+    // ─── Angular derivatives (no radial ODE — rope is constraint-based, three.js style) ───
+    Derivs CalculateAngularDerivatives(State s)
     {
         Derivs d;
         d.d_t = s.o_t;
         d.d_p = s.o_p;
-        d.d_L = s.dL;
 
-        float safeL = Mathf.Max(s.L, 0.1f);
-        float sinT = Mathf.Sin(s.t);
-        float cosT = Mathf.Cos(s.t);
-        float sinT_safe = Mathf.Max(Mathf.Abs(sinT), 0.001f);
+        float safeSinT = Mathf.Max(Mathf.Abs(Mathf.Sin(s.t)), 0.001f);
 
         Vector3 Fw = GetWindForce();
-        Vector3 theta_hat = new Vector3(cosT * Mathf.Cos(s.p), sinT, cosT * Mathf.Sin(s.p));
+        Vector3 theta_hat = new Vector3(
+            Mathf.Cos(s.t) * Mathf.Cos(s.p),
+            Mathf.Sin(s.t),
+            Mathf.Cos(s.t) * Mathf.Sin(s.p));
         Vector3 phi_hat = new Vector3(-Mathf.Sin(s.p), 0f, Mathf.Cos(s.p));
-        Vector3 r_hat = new Vector3(sinT * Mathf.Cos(s.p), -cosT, sinT * Mathf.Sin(s.p));
 
-        float Fw_theta = Vector3.Dot(Fw, theta_hat);
-        float Fw_phi = Vector3.Dot(Fw, phi_hat);
-        float Fw_r = Vector3.Dot(Fw, r_hat);
+        float windAlpha_theta = Vector3.Dot(Fw, theta_hat) / (currentMass * L0);
+        float windAlpha_phi = Vector3.Dot(Fw, phi_hat) / (currentMass * L0 * safeSinT);
 
-        d.d_ot = sinT * cosT * s.o_p * s.o_p
-               - (g / safeL) * sinT
-               - 2f * (s.dL / safeL) * s.o_t
+        d.d_ot = Mathf.Sin(s.t) * Mathf.Cos(s.t) * s.o_p * s.o_p
+               - (g / L0) * Mathf.Sin(s.t)
                - (b / currentMass) * s.o_t
-               + Fw_theta / (currentMass * safeL);
+               + windAlpha_theta;
 
-        d.d_op = -2f * (s.dL / safeL) * s.o_p
-               - 2f * (cosT / sinT_safe) * s.o_t * s.o_p
+        d.d_op = -2f * (Mathf.Cos(s.t) / safeSinT) * s.o_t * s.o_p
                - (b / currentMass) * s.o_p
-               + Fw_phi / (currentMass * safeL * sinT_safe);
-
-        float F_cf = currentMass * safeL * (s.o_t * s.o_t + sinT * sinT * s.o_p * s.o_p);
-        float F_grav_r = currentMass * g * cosT;
-        float F_spring = -k_rope * (s.L - L0);
-        float F_damp = -c_rope * s.dL;
-
-        d.d_dL = (F_grav_r + F_cf + F_spring + F_damp + Fw_r) / currentMass;
+               + windAlpha_phi;
 
         const float CLAMP = 1000f;
         d.d_ot = Mathf.Clamp(d.d_ot, -CLAMP, CLAMP);
         d.d_op = Mathf.Clamp(d.d_op, -CLAMP, CLAMP);
-        d.d_dL = Mathf.Clamp(d.d_dL, -CLAMP, CLAMP);
 
         return d;
     }
+
+    static State StepAngular(State s, Derivs d, float h) => new State
+    {
+        t = s.t + h * d.d_t,
+        o_t = s.o_t + h * d.d_ot,
+        p = s.p + h * d.d_p,
+        o_p = s.o_p + h * d.d_op
+    };
 
     void FixedUpdate()
     {
         if (!Application.isPlaying || pivotPoint == null) return;
 
-        float dt = Time.fixedDeltaTime;
+        // Match index.html: SUBSTEPS=10 per frame so the large angular RK4
+        // integrates with the same effective step size as Three.js (≈0.0017s).
+        const int SUBSTEPS = 10;
+        float subDt = Time.fixedDeltaTime / SUBSTEPS;
 
-        State s = new State
-        { t = theta, o_t = omega_theta, p = phi, o_p = omega_phi, L = currentLength, dL = ropeVelocity };
-
-        Derivs d1 = CalculateDerivatives(s);
-        Derivs d2 = CalculateDerivatives(Step(s, d1, dt * 0.5f));
-        Derivs d3 = CalculateDerivatives(Step(s, d2, dt * 0.5f));
-        Derivs d4 = CalculateDerivatives(Step(s, d3, dt));
-
-        theta += (dt / 6f) * (d1.d_t + 2 * d2.d_t + 2 * d3.d_t + d4.d_t);
-        omega_theta += (dt / 6f) * (d1.d_ot + 2 * d2.d_ot + 2 * d3.d_ot + d4.d_ot);
-        phi += (dt / 6f) * (d1.d_p + 2 * d2.d_p + 2 * d3.d_p + d4.d_p);
-        omega_phi += (dt / 6f) * (d1.d_op + 2 * d2.d_op + 2 * d3.d_op + d4.d_op);
-        currentLength += (dt / 6f) * (d1.d_L + 2 * d2.d_L + 2 * d3.d_L + d4.d_L);
-        ropeVelocity += (dt / 6f) * (d1.d_dL + 2 * d2.d_dL + 2 * d3.d_dL + d4.d_dL);
-
-        if (float.IsNaN(theta) || float.IsNaN(phi) || float.IsNaN(currentLength))
+        for (int step = 0; step < SUBSTEPS; step++)
         {
-            Debug.LogWarning("[Pendulum] NaN detected — resetting state");
-            theta = initialTheta * Mathf.Deg2Rad;
-            omega_theta = 0f;
-            phi = 0f;
-            omega_phi = 0f;
+            State s = new State { t = theta, o_t = omega_theta, p = phi, o_p = omega_phi };
+
+            Derivs d1 = CalculateAngularDerivatives(s);
+            Derivs d2 = CalculateAngularDerivatives(StepAngular(s, d1, subDt * 0.5f));
+            Derivs d3 = CalculateAngularDerivatives(StepAngular(s, d2, subDt * 0.5f));
+            Derivs d4 = CalculateAngularDerivatives(StepAngular(s, d3, subDt));
+
+            theta += (subDt / 6f) * (d1.d_t + 2 * d2.d_t + 2 * d3.d_t + d4.d_t);
+            omega_theta += (subDt / 6f) * (d1.d_ot + 2 * d2.d_ot + 2 * d3.d_ot + d4.d_ot);
+            phi += (subDt / 6f) * (d1.d_p + 2 * d2.d_p + 2 * d3.d_p + d4.d_p);
+            omega_phi += (subDt / 6f) * (d1.d_op + 2 * d2.d_op + 2 * d3.d_op + d4.d_op);
+
+            theta = Mathf.Clamp(theta, -Mathf.PI * 0.95f, Mathf.PI * 0.95f);
+
+            // ── Three.js-style rigid rope constraint ──
+            // Full position + velocity projection every substep (matches rigid mode).
+            Vector3 idealPos = pivotPoint.position + SphericalToCartesian(L0, theta, phi);
+            Vector3 velFromAngular = ComputeAngularVelocity(L0, theta, phi, omega_theta, omega_phi);
+
+            Vector3 dirVec = idealPos - pivotPoint.position;
+            float dist = dirVec.magnitude;
+            if (dist > 0.001f) dirVec.Normalize();
+
+            idealPos = pivotPoint.position + dirVec * L0;
+
+            float vRadial = Vector3.Dot(velFromAngular, dirVec);
+            velFromAngular -= dirVec * vRadial;
+
             currentLength = L0;
-            ropeVelocity = 0f;
+
+            if (!float.IsNaN(idealPos.x) && !float.IsNaN(idealPos.y) && !float.IsNaN(idealPos.z))
+                transform.position = idealPos;
         }
 
-        currentLength = Mathf.Clamp(currentLength, L0 * 0.5f, L0 * 2f);
+        // Angular acceleration for effective gravity (uses final angular velocities)
+        Derivs lastD = CalculateAngularDerivatives(new State { t = theta, o_t = omega_theta, p = phi, o_p = omega_phi });
+        AngularAccelerationTheta = lastD.d_ot;
 
-        AngularAccelerationTheta =
-            (d1.d_ot + 2 * d2.d_ot + 2 * d3.d_ot + d4.d_ot) / 6f;
+        // Velocity computed from total displacement over the full FixedUpdate frame
+        BucketVelocity = firstFrame
+            ? Vector3.zero
+            : (transform.position - previousPosition) / Time.fixedDeltaTime;
+
+        previousPosition = transform.position;
+        firstFrame = false;
 
         float omega_tot = Mathf.Sqrt(omega_theta * omega_theta + omega_phi * omega_phi);
         EffectiveGravity = Mathf.Max(g * 0.5f,
@@ -246,31 +268,8 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
                 Mathf.Pow(g + omega_tot * omega_tot * currentLength * Mathf.Cos(theta), 2) +
                 Mathf.Pow(AngularAccelerationTheta * currentLength * Mathf.Sin(theta), 2)));
 
-        // نقطة التعليق ثابتة هنا — لا تُحسب من جديد أبداً
-        Vector3 newPos = pivotPoint.position + SphericalToCartesian(currentLength, theta, phi);
-
-        if (!float.IsNaN(newPos.x) && !float.IsNaN(newPos.y) && !float.IsNaN(newPos.z))
-            transform.position = newPos;
-
-        BucketVelocity = firstFrame
-            ? Vector3.zero
-            : (transform.position - previousPosition) / dt;
-
-        previousPosition = transform.position;
-        firstFrame = false;
-
         UpdateRopeVisuals();
     }
-
-    static State Step(State s, Derivs d, float h) => new State
-    {
-        t = s.t + h * d.d_t,
-        o_t = s.o_t + h * d.d_ot,
-        p = s.p + h * d.d_p,
-        o_p = s.o_p + h * d.d_op,
-        L = Mathf.Max(s.L + h * d.d_L, 0.1f),
-        dL = s.dL + h * d.d_dL
-    };
 
     void UpdateRopeVisuals()
     {
@@ -319,6 +318,5 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     {
         L0 = Mathf.Max(0.5f, newL0);
         currentLength = L0;
-        ropeVelocity = 0f;
     }
 }
