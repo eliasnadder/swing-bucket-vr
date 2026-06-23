@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swinging Paint Bucket - Realistic Lighting</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff; }
+        #ui-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            z-index: 100;
+            width: 320px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        h2 { margin-top: 0; font-size: 18px; color: #4CAF50; text-align: center; }
+        h3 { margin: 10px 0 5px 0; font-size: 14px; color: #2196F3; border-bottom: 1px solid #444; padding-bottom: 3px; }
+        .control-group { margin-bottom: 12px; }
+        label { display: block; font-size: 13px; margin-bottom: 5px; }
+        input[type=range] { width: 100%; }
+        select { width: 100%; padding: 5px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 5px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #45a049; }
+        button.blue { background-color: #2196F3; }
+        button.blue:hover { background-color: #0b7dda; }
+        #stats { margin-top: 10px; font-size: 12px; color: #aaa; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <h2>Swinging Paint Bucket</h2>
+
+        <h3>الكاميرا (Camera)</h3>
+        <div class="control-group">
+            <label>زاوية الكاميرا</label>
+            <select id="cameraView">
+                <option value="overview">عرض عام (Overview)</option>
+                <option value="top">من الأعلى (Top View)</option>
+                <option value="side">جانبي (Side View)</option>
+                <option value="closeup">قريب (Close-up)</option>
+            </select>
+        </div>
+        
+        <h3>إعدادات الحركة</h3>
+        <div class="control-group">
+            <label>زاوية البداية: <span id="val-angle">45</span>°</label>
+            <input type="range" id="angle" min="-80" max="80" value="45" step="1">
+        </div>
+        
+        <div class="control-group">
+            <label>طول الحبل (L): <span id="val-length">8</span></label>
+            <input type="range" id="length" min="4" max="15" value="8" step="0.1">
+        </div>
+
+        <div class="control-group">
+            <label>نوع الحبل (Rope Type)</label>
+            <select id="ropeType">
+                <option value="rigid" selected>حبل صلب (Rigid)</option>
+                <option value="elastic">حبل مرن (Elastic)</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>مرونة الحبل (Spring K): <span id="val-stiffness">500</span></label>
+            <input type="range" id="stiffness" min="100" max="1000" value="500" step="10">
+        </div>
+
+        <div class="control-group">
+            <label>معامل التخميد (Damping): <span id="val-damping">3</span></label>
+            <input type="range" id="damping" min="0" max="20" value="3" step="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>قوة الرياح (Wind): <span id="val-wind">0</span></label>
+            <input type="range" id="wind" min="-5" max="5" value="0" step="0.1">
+        </div>
+
+        <h3>إعدادات الطلاء</h3>
+        <div class="control-group">
+            <label>قطر فتحة الطلاء: <span id="val-hole">0.3</span></label>
+            <input type="range" id="hole" min="0.05" max="0.5" value="0.3" step="0.01">
+        </div>
+
+        <div class="control-group">
+            <label>لون الطلاء</label>
+            <input type="color" id="paintColor" value="#ff0000" style="width:100%; height:30px;">
+        </div>
+
+        <button id="startBtn">إبدأ / إيقاف المحاكاة</button>
+        <button id="resetBtn" class="blue">تصفير الحركة</button>
+        <button id="clearBtn">مسح اللوحة</button>
+
+        <div id="stats">
+            <p>السرعة (Velocity): <span id="stat-vel">0.00</span> m/s</p>
+            <p>الجسيمات النشطة: <span id="stat-particles">0</span></p>
+            <p>كتلة الدلو: <span id="stat-mass">1.00</span> kg</p>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+        // ================= 1. Scene Setup =================
+        let scene, camera, renderer, controls, composer;
+        let bucket, rope, bucketHandle;
+        let canvasTexture, canvasCtx;
+        let particles = [];
+        let pointsMesh;
+        const MAX_PARTICLES = 4000;
+
+        let state = {
+            isRunning: false,
+            pos: new THREE.Vector3(0, 5, 0),
+            vel: new THREE.Vector3(0, 0, 0),
+            initialMass: 2.0,
+            currentMass: 2.0,
+            paintLevel: 1.0,
+            L: 8,
+            k: 500,
+            c: 3,
+            g: 9.81,
+            b: 0.1,
+            wind: 0,
+            holeSize: 0.3,
+            paintColor: '#ff0000',
+            initAngle: 45,
+            ropeType: 'rigid'
+        };
+
+        const pivotPosition = new THREE.Vector3(0, 12, 0);
+
+        const cameraPresets = {
+            overview: { pos: new THREE.Vector3(0, 8, 25), target: new THREE.Vector3(0, 5, 0) },
+            top: { pos: new THREE.Vector3(0, 25, 0.1), target: new THREE.Vector3(0, 0, 0) },
+            side: { pos: new THREE.Vector3(25, 8, 0), target: new THREE.Vector3(0, 5, 0) },
+            closeup: { pos: new THREE.Vector3(5, 7, 10), target: new THREE.Vector3(0, 6, 0) }
+        };
+
+        let isCameraMoving = false;
+        let cameraLerpT = 0;
+        let cameraStartPos = new THREE.Vector3();
+        let cameraEndPos = new THREE.Vector3();
+        let cameraStartTarget = new THREE.Vector3();
+        let cameraEndTarget = new THREE.Vector3();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0c);
+            scene.fog = new THREE.Fog(0x0a0a0c, 30, 80);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.copy(cameraPresets.overview.pos);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            // FIX: Lowered exposure to prevent washed out look
+            renderer.toneMappingExposure = 0.8; 
+            document.body.appendChild(renderer.domElement);
+
+            // Post-Processing
+            composer = new EffectComposer(renderer);
+            composer.addPass(new RenderPass(scene, camera));
+            // FIX: Lowered strength, raised threshold so only bright paint blooms
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.2, 0.4, 0.95);
+            composer.addPass(bloomPass);
+            composer.addPass(new OutputPass());
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.copy(cameraPresets.overview.target);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.05;
+            controls.minDistance = 5;
+            controls.maxDistance = 60;
+            controls.update();
+
+            setupLights();
+
+            const pivotGeo = new THREE.SphereGeometry(0.2, 16, 16);
+            const pivotMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8, roughness: 0.2 });
+            const pivotMesh = new THREE.Mesh(pivotGeo, pivotMat);
+            pivotMesh.position.copy(pivotPosition);
+            scene.add(pivotMesh);
+
+            const ropeGeo = new THREE.CylinderGeometry(0.05, 0.05, 1, 8);
+            const ropeMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.9 });
+            rope = new THREE.Mesh(ropeGeo, ropeMat);
+            rope.castShadow = true;
+            scene.add(rope);
+
+            bucket = new THREE.Group();
+            const bucketGeo = new THREE.CylinderGeometry(0.8, 0.5, 1.5, 32);
+            // FIX: Reduced metalness, increased roughness to stop it glowing
+            const bucketMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.7, roughness: 0.5 });
+            const bucketMesh = new THREE.Mesh(bucketGeo, bucketMat);
+            bucketMesh.castShadow = true;
+            bucketMesh.receiveShadow = true;
+            bucket.add(bucketMesh);
+
+            const handleGeo = new THREE.TorusGeometry(0.9, 0.05, 8, 32, Math.PI);
+            const handleMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8, roughness: 0.4 });
+            bucketHandle = new THREE.Mesh(handleGeo, handleMat);
+            bucketHandle.position.y = 0.75;
+            bucketHandle.rotation.x = Math.PI / 2;
+            bucket.add(bucketHandle);
+            scene.add(bucket);
+
+            const canvasGeo = new THREE.PlaneGeometry(20, 20);
+            const drawingCanvas = document.createElement('canvas');
+            drawingCanvas.width = 1024;
+            drawingCanvas.height = 1024;
+            canvasCtx = drawingCanvas.getContext('2d');
+            // FIX: Slightly dark grey background instead of pure white
+            canvasCtx.fillStyle = '#E0E0E0'; 
+            canvasCtx.fillRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            
+            canvasTexture = new THREE.CanvasTexture(drawingCanvas);
+            canvasTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            
+            // FIX: Increased roughness for canvas to prevent glare
+            const canvasMaterial = new THREE.MeshStandardMaterial({ map: canvasTexture, roughness: 0.9, metalness: 0.0 });
+            const canvasMesh = new THREE.Mesh(canvasGeo, canvasMaterial);
+            canvasMesh.rotation.x = -Math.PI / 2;
+            canvasMesh.position.y = 0;
+            canvasMesh.receiveShadow = true;
+            scene.add(canvasMesh);
+
+            const floorGeo = new THREE.PlaneGeometry(100, 100);
+            const floorMat = new THREE.ShadowMaterial({ opacity: 0.4 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -0.01;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            const particleGeo = new THREE.BufferGeometry();
+            const positions = new Float32Array(MAX_PARTICLES * 3);
+            const colors = new Float32Array(MAX_PARTICLES * 3);
+            const sizes = new Float32Array(MAX_PARTICLES);
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            particleGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const particleMat = new THREE.PointsMaterial({
+                size: 0.2,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9,
+                sizeAttenuation: true,
+                blending: THREE.NormalBlending,
+                depthWrite: false
+            });
+            pointsMesh = new THREE.Points(particleGeo, particleMat);
+            scene.add(pointsMesh);
+
+            setupUI();
+            resetSimulation();
+            window.addEventListener('resize', onWindowResize, false);
+            
+            animate();
+        }
+
+        function setupLights() {
+            // FIX: Massively reduced light intensities
+            scene.add(new THREE.AmbientLight(0xffffff, 0.1));
+            
+            const hemi = new THREE.HemisphereLight(0xffffff, 0x222222, 0.2);
+            scene.add(hemi);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(10, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.left = -15;
+            dirLight.shadow.camera.right = 15;
+            dirLight.shadow.camera.top = 15;
+            dirLight.shadow.camera.bottom = -15;
+            dirLight.shadow.bias = -0.0005;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0x8899ff, 0.2);
+            fillLight.position.set(-10, 10, -10);
+            scene.add(fillLight);
+
+            // FIX: Lowered spotlight intensity
+            const spotLight = new THREE.SpotLight(0xffffff, 20, 35, Math.PI / 5, 0.4, 1);
+            spotLight.position.set(0, 15, 0);
+            spotLight.target.position.set(0, 0, 0);
+            scene.add(spotLight);
+            scene.add(spotLight.target);
+        }
+
+        // ================= 2. Physics =================
+        function updatePhysicsStep(dt) {
+            let gravity = new THREE.Vector3(0, -state.g * state.currentMass, 0);
+            let wind = new THREE.Vector3(state.wind * state.currentMass, 0, 0);
+            let airDrag = state.vel.clone().multiplyScalar(-state.b * state.currentMass);
+            let accel = new THREE.Vector3().add(gravity).add(wind).add(airDrag).divideScalar(state.currentMass);
+            
+            state.vel.add(accel.multiplyScalar(dt));
+            state.pos.add(state.vel.clone().multiplyScalar(dt));
+            
+            let dirVec = new THREE.Vector3().subVectors(state.pos, pivotPosition);
+            let dist = dirVec.length();
+            if (dist === 0) return;
+            
+            dirVec.normalize();
+            let stretch = dist - state.L;
+            let vRadial = state.vel.dot(dirVec);
+            
+            if (state.ropeType === 'rigid') {
+                state.pos.addScaledVector(dirVec, -stretch);
+                state.vel.addScaledVector(dirVec, -vRadial);
+            } else {
+                if (stretch > 0) {
+                    let stiffness = state.k / 1000; 
+                    state.pos.addScaledVector(dirVec, -stretch * stiffness);
+                    if (vRadial > 0) {
+                        let dampingFactor = state.c / 20;
+                        state.vel.addScaledVector(dirVec, -vRadial * dampingFactor);
+                    }
+                }
+            }
+        }
+
+        function updatePhysics(dt) {
+            const SUBSTEPS = 10;
+            const sub_dt = dt / SUBSTEPS;
+            for (let i = 0; i < SUBSTEPS; i++) {
+                updatePhysicsStep(sub_dt);
+            }
+
+            bucket.position.copy(state.pos);
+
+            let midPoint = new THREE.Vector3().addVectors(pivotPosition, state.pos).multiplyScalar(0.5);
+            rope.position.copy(midPoint);
+            let currentLength = pivotPosition.distanceTo(state.pos);
+            rope.scale.y = Math.max(0.01, currentLength);
+            let up = new THREE.Vector3(0, 1, 0);
+            let dir = new THREE.Vector3().subVectors(state.pos, pivotPosition).normalize();
+            rope.quaternion.setFromUnitVectors(up, dir);
+        }
+
+        // ================= 3. Particle System =================
+        function spawnParticle() {
+            if (particles.length >= MAX_PARTICLES) return;
+
+            let outflowSpeed = Math.sqrt(2 * state.g * state.paintLevel * 1.5); 
+            let randomSpread = (Math.random() - 0.5) * 0.2;
+
+            let color = new THREE.Color(state.paintColor);
+
+            let particle = {
+                pos: new THREE.Vector3(state.pos.x, state.pos.y - 0.75, state.pos.z),
+                vel: new THREE.Vector3(
+                    state.vel.x + randomSpread,       
+                    state.vel.y - outflowSpeed * 0.2, 
+                    state.vel.z + randomSpread
+                ),
+                life: 5.0,
+                size: state.holeSize * (0.5 + Math.random() * 0.5),
+                color: color
+            };
+            particles.push(particle);
+
+            if (state.paintLevel > 0) {
+                state.paintLevel -= 0.0005;
+                state.currentMass = 0.5 + (state.paintLevel * 1.5); 
+            }
+        }
+
+        function updateParticles(dt) {
+            let speed = state.vel.length();
+            let spawnRate = (speed * 2 + 5) * state.holeSize * (state.paintLevel > 0 ? 1 : 0);
+            if (Math.random() < spawnRate * dt * 10) {
+                spawnParticle();
+            }
+
+            let positions = pointsMesh.geometry.attributes.position.array;
+            let colors = pointsMesh.geometry.attributes.color.array;
+
+            for (let i = 0; i < particles.length; i++) {
+                let p = particles[i];
+
+                p.vel.y -= state.g * dt;     
+                p.vel.x += state.wind * dt;  
+                p.vel.multiplyScalar(0.99);  
+
+                p.pos.addScaledVector(p.vel, dt);
+                p.life -= dt;
+
+                positions[i * 3] = p.pos.x;
+                positions[i * 3 + 1] = p.pos.y;
+                positions[i * 3 + 2] = p.pos.z;
+
+                colors[i * 3] = p.color.r;
+                colors[i * 3 + 1] = p.color.g;
+                colors[i * 3 + 2] = p.color.b;
+            }
+
+            for (let i = particles.length; i < MAX_PARTICLES; i++) {
+                positions[i * 3 + 1] = -1000; 
+            }
+
+            pointsMesh.geometry.attributes.position.needsUpdate = true;
+            pointsMesh.geometry.attributes.color.needsUpdate = true;
+            pointsMesh.geometry.setDrawRange(0, particles.length);
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                if (p.pos.y <= 0.1) {
+                    drawOnCanvas(p);
+                    particles.splice(i, 1);
+                } else if (p.life <= 0 || p.pos.y < -5) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // ================= 4. Drawing Logic =================
+        function drawOnCanvas(p) {
+            let x = (p.pos.x / 20 + 0.5) * 1024;
+            let y = (p.pos.z / 20 + 0.5) * 1024;
+
+            if (x < 0 || x > 1024 || y < 0 || y > 1024) return;
+
+            let impactSpeed = Math.abs(p.vel.y);
+            let radius = p.size * 25 + impactSpeed * 1.5;
+
+            let hexColor = '#' + p.color.getHexString();
+
+            const gradient = canvasCtx.createRadialGradient(x, y, 0, x, y, radius);
+            gradient.addColorStop(0, hexColor);
+            gradient.addColorStop(0.6, hexColor + '80'); 
+            gradient.addColorStop(1, hexColor + '00');   
+
+            canvasCtx.fillStyle = gradient;
+            canvasCtx.beginPath();
+            canvasCtx.arc(x, y, radius, 0, Math.PI * 2);
+            canvasCtx.fill();
+
+            if (impactSpeed > 3) {
+                let droplets = Math.floor(impactSpeed / 2);
+                for(let j=0; j<droplets; j++) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let dist = Math.random() * radius * 2;
+                    let offX = Math.cos(angle) * dist;
+                    let offY = Math.sin(angle) * dist;
+                    let offRad = Math.random() * (radius / 5);
+                    canvasCtx.fillStyle = hexColor + 'AA';
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(x + offX, y + offY, offRad, 0, Math.PI * 2);
+                    canvasCtx.fill();
+                }
+            }
+            canvasTexture.needsUpdate = true;
+        }
+
+        // ================= 5. Camera & UI =================
+        function setCameraView(viewName) {
+            const view = cameraPresets[viewName];
+            if (!view) return;
+            cameraStartPos.copy(camera.position);
+            cameraEndPos.copy(view.pos);
+            cameraStartTarget.copy(controls.target);
+            cameraEndTarget.copy(view.target);
+            cameraLerpT = 0;
+            isCameraMoving = true;
+            controls.enabled = false; 
+        }
+
+        let lastTime = 0;
+        function animate(time = 0) {
+            requestAnimationFrame(animate);
+            let dt = (time - lastTime) / 1000;
+            lastTime = time;
+            if (dt > 0.1) dt = 0.1;
+
+            if (state.isRunning) {
+                updatePhysics(dt);
+                updateParticles(dt);
+                
+                document.getElementById('stat-vel').innerText = state.vel.length().toFixed(2);
+                document.getElementById('stat-particles').innerText = particles.length;
+                document.getElementById('stat-mass').innerText = state.currentMass.toFixed(2);
+            }
+
+            if (isCameraMoving) {
+                cameraLerpT += 0.03;
+                if (cameraLerpT >= 1) {
+                    cameraLerpT = 1;
+                    isCameraMoving = false;
+                    controls.enabled = true;
+                }
+                camera.position.lerpVectors(cameraStartPos, cameraEndPos, cameraLerpT);
+                controls.target.lerpVectors(cameraStartTarget, cameraEndTarget, cameraLerpT);
+            }
+
+            controls.update();
+            composer.render(); 
+        }
+
+        function resetSimulation() {
+            let rad = state.initAngle * Math.PI / 180;
+            state.pos.set(
+                pivotPosition.x + state.L * Math.sin(rad),
+                pivotPosition.y - state.L * Math.cos(rad),
+                pivotPosition.z
+            );
+            state.vel.set(0, 0, 0);
+            state.paintLevel = 1.0;
+            state.currentMass = state.initialMass;
+            
+            bucket.position.copy(state.pos);
+            let midPoint = new THREE.Vector3().addVectors(pivotPosition, state.pos).multiplyScalar(0.5);
+            rope.position.copy(midPoint);
+            let dist = pivotPosition.distanceTo(state.pos);
+            rope.scale.y = dist;
+            let up = new THREE.Vector3(0, 1, 0);
+            let dir = new THREE.Vector3().subVectors(state.pos, pivotPosition).normalize();
+            rope.quaternion.setFromUnitVectors(up, dir);
+        }
+
+        function setupUI() {
+            const angleInput = document.getElementById('angle');
+            const lengthInput = document.getElementById('length');
+            const ropeTypeSelect = document.getElementById('ropeType');
+            const stiffnessInput = document.getElementById('stiffness');
+            const dampingInput = document.getElementById('damping');
+            const windInput = document.getElementById('wind');
+            const holeInput = document.getElementById('hole');
+            const colorInput = document.getElementById('paintColor');
+            const startBtn = document.getElementById('startBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const cameraViewSelect = document.getElementById('cameraView');
+
+            angleInput.oninput = () => {
+                state.initAngle = parseFloat(angleInput.value);
+                document.getElementById('val-angle').innerText = angleInput.value;
+                if (!state.isRunning) resetSimulation();
+            };
+            lengthInput.oninput = () => {
+                state.L = parseFloat(lengthInput.value);
+                document.getElementById('val-length').innerText = lengthInput.value;
+                if (!state.isRunning) resetSimulation();
+            };
+            ropeTypeSelect.onchange = () => state.ropeType = ropeTypeSelect.value;
+            stiffnessInput.oninput = () => {
+                state.k = parseFloat(stiffnessInput.value);
+                document.getElementById('val-stiffness').innerText = stiffnessInput.value;
+            };
+            dampingInput.oninput = () => {
+                state.c = parseFloat(dampingInput.value);
+                document.getElementById('val-damping').innerText = dampingInput.value;
+            };
+            windInput.oninput = () => {
+                state.wind = parseFloat(windInput.value);
+                document.getElementById('val-wind').innerText = windInput.value;
+            };
+            holeInput.oninput = () => {
+                state.holeSize = parseFloat(holeInput.value);
+                document.getElementById('val-hole').innerText = holeInput.value;
+            };
+            colorInput.oninput = () => state.paintColor = colorInput.value;
+            cameraViewSelect.onchange = () => setCameraView(cameraViewSelect.value);
+            startBtn.onclick = () => state.isRunning = !state.isRunning;
+            resetBtn.onclick = () => resetSimulation();
+            clearBtn.onclick = () => {
+                // Restore to slightly grey background
+                canvasCtx.fillStyle = '#E0E0E0';
+                canvasCtx.fillRect(0, 0, 1024, 1024);
+                canvasTexture.needsUpdate = true;
+                particles = [];
+            };
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        init();
+    </script>
+</body>
+</html>
