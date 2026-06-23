@@ -15,9 +15,9 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float ropeWidthBottom = 0.02f;
 
     [Header("Pendulum Parameters")]
-    public float L0 = 5f;
+    public float L0 = 8.5f;
     public float m0 = 2f;
-    public float g = 9.81f;
+    public float g = 981f;
     public float b = 0.1f;
 
     [Header("Spring-Damper Rope (Three.js style)")]
@@ -30,7 +30,7 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float windCoeff = 0.5f;
 
     [Header("Initial State")]
-    public float initialTheta = 30f;
+    public float initialTheta = 45f;
     public float initialOmega = 0f;
     public float initialPhi = 0f;
 

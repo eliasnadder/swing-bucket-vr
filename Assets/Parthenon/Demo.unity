@@ -2384,14 +2384,14 @@ MonoBehaviour:
   ropeWidthBottom: 0.2
   L0: 8.5
   m0: 2
-  g: 9.81
+  g: 981
   b: 0.1
   k_rope: 50
   c_rope: 10
   windSpeed: 0
   windDirection: {x: 1, y: 0, z: 0}
   windCoeff: 0.5
-  initialTheta: 35
+  initialTheta: 45
   initialOmega: 0
   initialPhi: 0
   autoSyncFromScenePosition: 0
