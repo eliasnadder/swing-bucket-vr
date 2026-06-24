@@ -7,12 +7,12 @@ public class SPHFluidSolver : MonoBehaviour
     public static SPHFluidSolver Instance { get; private set; }
 
     [Header("SPH Parameters")]
-    public float smoothingRadius = 0.08f;
+    public float smoothingRadius = 8f;
     public float particleMass = 0.02f;
     public float restDensity = 1000f;
     public float gasConstant = 2000f;
     public float viscosity = 0.25f;
-    public Vector3 gravity = new Vector3(0f, -9.81f, 0f);
+    public Vector3 gravity = new Vector3(0f, -981f, 0f);
     public float damping = 0.02f;
     public float timeStep = 0.0166667f;
     public bool useFull3D = false;
@@ -30,7 +30,7 @@ public class SPHFluidSolver : MonoBehaviour
     [Tooltip("معامل التفريغ Cd")]
     public float Cd = 0.6f;
     [Tooltip("قطر فتحة السطل")]
-    public float orificeDiameter = 0.05f;
+    public float orificeDiameter = 2f;
     [Tooltip("كثافة الطلاء (kg/m³)")]
     public float paintDensity = 1200f;
     [Tooltip("لون الطلاء الحالي")]

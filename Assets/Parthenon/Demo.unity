@@ -2378,16 +2378,29 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SwingingCoupledSpringPendulum
   pivotPoint: {fileID: 2135093993}
+  uiCanvas: {fileID: 0}
+  mainCamera: {fileID: 0}
+  rope:
+    restLength: 70
+    stiffness: 50
+    damping: 5
+    minLengthRatio: 0.5
+    maxLengthRatio: 2
+    segments: 20
+    sagFactor: 0.04
+    width: 0.08
+    colorRelaxed: {r: 0.85, g: 0.55, b: 0.1, a: 1}
+    colorTensed: {r: 0.95, g: 0.15, b: 0.1, a: 1}
   ropeSegments: 20
   sagFactor: 0.04
-  ropeWidthTop: 0.6
-  ropeWidthBottom: 0.2
-  L0: 8.5
+  ropeWidthTop: 0.06
+  ropeWidthBottom: 0.02
+  L0: 70
   m0: 2
   g: 981
   b: 0.1
-  k_rope: 50
-  c_rope: 10
+  k_rope: 500
+  c_rope: 3
   windSpeed: 0
   windDirection: {x: 1, y: 0, z: 0}
   windCoeff: 0.5
@@ -2566,7 +2579,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6764957cd3161d5468ea5e655321a3ec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SPHFluidSolver
-  smoothingRadius: 0.08
+  smoothingRadius: 8
   particleMass: 0.02
   restDensity: 1000
   gasConstant: 2000
@@ -2580,7 +2593,7 @@ MonoBehaviour:
   initialVolume: 0.5
   maxPaintHeight: 0.3
   Cd: 0.6
-  orificeDiameter: 0.001
+  orificeDiameter: 2
   paintDensity: 1200
   currentPaintColor: {r: 1, g: 0, b: 0, a: 1}
   temperature: 25
