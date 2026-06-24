@@ -11088,6 +11088,19 @@ MonoBehaviour:
   colorDropdown: {fileID: 1557551735}
   surfaceTypeDropdown: {fileID: 1778669906}
   restartButton: {fileID: 220694250}
+  lengthRange: {x: 0.1, y: 10}
+  elasticityRange: {x: 0, y: 2000}
+  ropeDampingRange: {x: 0, y: 50}
+  airResistanceRange: {x: 0, y: 2}
+  gravityRange: {x: 0, y: 2000}
+  initialAngleRange: {x: -90, y: 90}
+  initialOmegaRange: {x: -10, y: 10}
+  viscosityRange: {x: 0, y: 5}
+  paintAmountRange: {x: 0, y: 2000}
+  windSpeedRange: {x: -20, y: 20}
+  temperatureRange: {x: -10, y: 60}
+  humidityRange: {x: 0, y: 100}
+  tiltRange: {x: 0, y: 90}
 --- !u!114 &1603322438
 MonoBehaviour:
   m_ObjectHideFlags: 0

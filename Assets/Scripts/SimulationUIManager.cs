@@ -71,6 +71,33 @@ public class SimulationUIManager : MonoBehaviour
     [Header("Buttons")]
     public Button restartButton;
 
+    // ============== Slider Ranges (Section: bug-fix) ==============
+    // ─────────────────────────────────────────────────────────────
+    // ⚠️ السبب الجذري للمشكلة: كانت كل الـ Sliders في المشهد بنطاقها
+    // الافتراضي (Min=0 / Max=1). عند استدعاء InitSliderValues() نحاول
+    // وضع قيم حقيقية مثل g=981 أو L0=8.5(م تحويل) داخل Slider بنطاق
+    // [0,1]. Unity يكتم (clamp) القيمة تلقائياً، وبسبب أن onValueChanged
+    // مربوط مسبقاً بـ BindListeners()، تتم إعادة كتابة المتغيّر الحقيقي
+    // بالقيمة المكتومة الخاطئة (مثلاً g يصبح 1 بدل 981!).
+    //
+    // الحل: نضبط Min/Max لكل Slider بالكود قبل تعيين القيمة، بنفس
+    // الفكرة المطبّقة سابقاً على orificeSlider فقط.
+    // ─────────────────────────────────────────────────────────────
+    [Header("Slider Range Overrides")]
+    public Vector2 lengthRange = new Vector2(0.1f, 10f);     // متر
+    public Vector2 elasticityRange = new Vector2(0f, 2000f);     // k_rope
+    public Vector2 ropeDampingRange = new Vector2(0f, 50f);       // c_rope
+    public Vector2 airResistanceRange = new Vector2(0f, 2f);        // b
+    public Vector2 gravityRange = new Vector2(0f, 2000f);     // cm/s²
+    public Vector2 initialAngleRange = new Vector2(-90f, 90f);     // درجة
+    public Vector2 initialOmegaRange = new Vector2(-10f, 10f);     // rad/s
+    public Vector2 viscosityRange = new Vector2(0f, 5f);
+    public Vector2 paintAmountRange = new Vector2(0f, 2000f);     // (L0×1000)
+    public Vector2 windSpeedRange = new Vector2(-20f, 20f);
+    public Vector2 temperatureRange = new Vector2(-10f, 60f);
+    public Vector2 humidityRange = new Vector2(0f, 100f);      // %
+    public Vector2 tiltRange = new Vector2(0f, 90f);       // درجة
+
     // ============== Color Palette ==============
     private static readonly Color[] PaintColors =
     {
@@ -87,36 +114,64 @@ public class SimulationUIManager : MonoBehaviour
     // ============================================================
     void Start()
     {
+        ApplySliderRanges();   // ← يجب أن يحدث أولاً، قبل أي SetSlider
         BindListeners();
         InitSliderValues();
         UpdateLabels();
+    }
+
+    // ── يضبط Min/Max لكل Slider بحيث لا تُكتم القيم الحقيقية ──
+    void ApplySliderRanges()
+    {
+        SetSliderRange(lengthSlider, lengthRange);
+        SetSliderRange(elasticitySlider, elasticityRange);
+        SetSliderRange(ropeDampingSlider, ropeDampingRange);
+        SetSliderRange(airResistanceSlider, airResistanceRange);
+        SetSliderRange(gravitySlider, gravityRange);
+        SetSliderRange(initialAngleSlider, initialAngleRange);
+        SetSliderRange(initialOmegaSlider, initialOmegaRange);
+        SetSliderRange(viscositySlider, viscosityRange);
+        SetSliderRange(paintAmountSlider, paintAmountRange);
+        SetSliderRange(windSpeedSlider, windSpeedRange);
+        SetSliderRange(temperatureSlider, temperatureRange);
+        SetSliderRange(humiditySlider, humidityRange);
+        SetSliderRange(tiltSlider, tiltRange);
+
+        // orificeSlider يبقى خاصاً لأن نطاقه يعتمد على BucketBuilder
+        if (bucketBuilder != null && orificeSlider != null)
+        {
+            orificeSlider.minValue = 0.01f;
+            orificeSlider.maxValue = bucketBuilder.OrificeMaxDiameter;
+        }
+    }
+
+    static void SetSliderRange(Slider s, Vector2 range)
+    {
+        if (s == null) return;
+        s.minValue = range.x;
+        s.maxValue = range.y;
     }
 
     void InitSliderValues()
     {
         if (pendulumEngine != null)
         {
-            SetSlider(lengthSlider,        pendulumEngine.L0 / UNITS_TO_METERS);
-            SetSlider(elasticitySlider,    pendulumEngine.k_rope);
-            SetSlider(ropeDampingSlider,   pendulumEngine.c_rope);
+            SetSlider(lengthSlider, pendulumEngine.L0 / UNITS_TO_METERS);
+            SetSlider(elasticitySlider, pendulumEngine.k_rope);
+            SetSlider(ropeDampingSlider, pendulumEngine.c_rope);
             SetSlider(airResistanceSlider, pendulumEngine.b);
-            SetSlider(gravitySlider,       pendulumEngine.g);
-            SetSlider(initialAngleSlider,  pendulumEngine.initialTheta);
-            SetSlider(initialOmegaSlider,  pendulumEngine.initialOmega);
+            SetSlider(gravitySlider, pendulumEngine.g);
+            SetSlider(initialAngleSlider, pendulumEngine.initialTheta);
+            SetSlider(initialOmegaSlider, pendulumEngine.initialOmega);
         }
         if (fluidEngine != null)
         {
-            if (bucketBuilder != null && orificeSlider != null)
-            {
-                orificeSlider.minValue = 0.01f;
-                orificeSlider.maxValue = bucketBuilder.OrificeMaxDiameter;
-            }
-            SetSlider(orificeSlider,     fluidEngine.orificeDiameter);
-            SetSlider(viscositySlider,   fluidEngine.viscosity);
+            SetSlider(orificeSlider, fluidEngine.orificeDiameter);
+            SetSlider(viscositySlider, fluidEngine.viscosity);
             SetSlider(paintAmountSlider, fluidEngine.initialVolume * 1000f);
-            SetSlider(windSpeedSlider,   fluidEngine.windSpeed);
+            SetSlider(windSpeedSlider, fluidEngine.windSpeed);
             SetSlider(temperatureSlider, fluidEngine.temperature);
-            SetSlider(humiditySlider,    fluidEngine.humidity * 100f);
+            SetSlider(humiditySlider, fluidEngine.humidity * 100f);
         }
         if (canvasEngine != null)
         {
@@ -130,33 +185,33 @@ public class SimulationUIManager : MonoBehaviour
     void BindListeners()
     {
         // Pendulum
-        Bind(lengthSlider,        v => { if (pendulumEngine) pendulumEngine.ResetLength(v * UNITS_TO_METERS); });
-        Bind(elasticitySlider,    v => { if (pendulumEngine) pendulumEngine.k_rope = v; });
-        Bind(ropeDampingSlider,   v => { if (pendulumEngine) pendulumEngine.c_rope = v; });
+        Bind(lengthSlider, v => { if (pendulumEngine) pendulumEngine.ResetLength(v * UNITS_TO_METERS); });
+        Bind(elasticitySlider, v => { if (pendulumEngine) pendulumEngine.k_rope = v; });
+        Bind(ropeDampingSlider, v => { if (pendulumEngine) pendulumEngine.c_rope = v; });
         Bind(airResistanceSlider, v => { if (pendulumEngine) pendulumEngine.b = v; });
-        Bind(gravitySlider,       v => { if (pendulumEngine) pendulumEngine.g = v; });
-        Bind(initialAngleSlider,  v => { if (pendulumEngine) pendulumEngine.initialTheta = v; });
-        Bind(initialOmegaSlider,  v => { if (pendulumEngine) pendulumEngine.initialOmega = v; });
+        Bind(gravitySlider, v => { if (pendulumEngine) pendulumEngine.g = v; });
+        Bind(initialAngleSlider, v => { if (pendulumEngine) pendulumEngine.initialTheta = v; });
+        Bind(initialOmegaSlider, v => { if (pendulumEngine) pendulumEngine.initialOmega = v; });
 
         // Fluid
-        Bind(orificeSlider,   v => { if (fluidEngine) fluidEngine.orificeDiameter = v; });
+        Bind(orificeSlider, v => { if (fluidEngine) fluidEngine.orificeDiameter = v; });
         Bind(viscositySlider, v => { if (fluidEngine) fluidEngine.viscosity = v; });
         Bind(paintAmountSlider, v => { if (fluidEngine) fluidEngine.initialVolume = v / 1000f; });
 
         // Environment
         Bind(windSpeedSlider, v =>
         {
-            if (fluidEngine)    fluidEngine.windSpeed = v;
+            if (fluidEngine) fluidEngine.windSpeed = v;
             if (pendulumEngine) pendulumEngine.windSpeed = v;
         });
         Bind(temperatureSlider, v => { if (fluidEngine) fluidEngine.temperature = v; });
-        Bind(humiditySlider,    v => { if (fluidEngine) fluidEngine.humidity = v / 100f; });
+        Bind(humiditySlider, v => { if (fluidEngine) fluidEngine.humidity = v / 100f; });
 
         // Canvas
         Bind(tiltSlider, v => { if (canvasEngine) canvasEngine.tiltAngle = v; });
 
         // Dropdowns
-        if (colorDropdown != null)       colorDropdown.onValueChanged.AddListener(ApplyColor);
+        if (colorDropdown != null) colorDropdown.onValueChanged.AddListener(ApplyColor);
         if (surfaceTypeDropdown != null) surfaceTypeDropdown.onValueChanged.AddListener(ApplySurface);
 
         // Buttons
@@ -183,20 +238,20 @@ public class SimulationUIManager : MonoBehaviour
 
     void UpdateLabels()
     {
-        SetLabel(lengthValueText,        lengthSlider,        v => $"{v:F2} m");
-        SetLabel(elasticityValueText,    elasticitySlider,    v => $"{v:F0} N/m");
-        SetLabel(ropeDampingValueText,   ropeDampingSlider,   v => $"{v:F1}");
+        SetLabel(lengthValueText, lengthSlider, v => $"{v:F2} m");
+        SetLabel(elasticityValueText, elasticitySlider, v => $"{v:F0} N/m");
+        SetLabel(ropeDampingValueText, ropeDampingSlider, v => $"{v:F1}");
         SetLabel(airResistanceValueText, airResistanceSlider, v => $"{v:F3}");
-        SetLabel(gravityValueText,       gravitySlider,       v => $"{v:F2} m/s²");
-        SetLabel(initialAngleValueText,  initialAngleSlider,  v => $"{v:F0}°");
-        SetLabel(initialOmegaValueText,  initialOmegaSlider,  v => $"{v:F2} rad/s");
-        SetLabel(orificeValueText,       orificeSlider,       v => $"{v * 1000f:F1} mm");
-        SetLabel(viscosityValueText,     viscositySlider,     v => $"{v:F3}");
-        SetLabel(paintAmountValueText,   paintAmountSlider,   v => $"{v:F1} L");
-        SetLabel(windSpeedValueText,     windSpeedSlider,     v => $"{v:F1} m/s");
-        SetLabel(temperatureValueText,   temperatureSlider,   v => $"{v:F0} °C");
-        SetLabel(humidityValueText,      humiditySlider,      v => $"{v:F0} %");
-        SetLabel(tiltValueText,          tiltSlider,          v => $"{v:F0}°");
+        SetLabel(gravityValueText, gravitySlider, v => $"{v:F2} m/s²");
+        SetLabel(initialAngleValueText, initialAngleSlider, v => $"{v:F0}°");
+        SetLabel(initialOmegaValueText, initialOmegaSlider, v => $"{v:F2} rad/s");
+        SetLabel(orificeValueText, orificeSlider, v => $"{v * 1000f:F1} mm");
+        SetLabel(viscosityValueText, viscositySlider, v => $"{v:F3}");
+        SetLabel(paintAmountValueText, paintAmountSlider, v => $"{v:F1} L");
+        SetLabel(windSpeedValueText, windSpeedSlider, v => $"{v:F1} m/s");
+        SetLabel(temperatureValueText, temperatureSlider, v => $"{v:F0} °C");
+        SetLabel(humidityValueText, humiditySlider, v => $"{v:F0} %");
+        SetLabel(tiltValueText, tiltSlider, v => $"{v:F0}°");
     }
 
     static void SetLabel(TextMeshProUGUI label, Slider slider, System.Func<float, string> format)
