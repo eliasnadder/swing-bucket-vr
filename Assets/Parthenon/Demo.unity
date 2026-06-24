@@ -2382,7 +2382,7 @@ MonoBehaviour:
   sagFactor: 0.04
   ropeWidthTop: 0.6
   ropeWidthBottom: 0.2
-  L0: 8.5
+  L0: 70
   m0: 2
   g: 981
   b: 0.1
@@ -2566,7 +2566,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6764957cd3161d5468ea5e655321a3ec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SPHFluidSolver
-  smoothingRadius: 0.08
+  smoothingRadius: 8
   particleMass: 0.02
   restDensity: 1000
   gasConstant: 2000
@@ -2580,7 +2580,7 @@ MonoBehaviour:
   initialVolume: 0.5
   maxPaintHeight: 0.3
   Cd: 0.6
-  orificeDiameter: 0.001
+  orificeDiameter: 2
   paintDensity: 1200
   currentPaintColor: {r: 1, g: 0, b: 0, a: 1}
   temperature: 25

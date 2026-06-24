@@ -15,7 +15,7 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float ropeWidthBottom = 0.02f;
 
     [Header("Pendulum Parameters")]
-    public float L0 = 8.5f;
+    public float L0 = 850f;
     public float m0 = 2f;
     public float g = 981f;
     public float b = 0.1f;
