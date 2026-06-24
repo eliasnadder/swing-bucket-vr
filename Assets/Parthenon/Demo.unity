@@ -2378,16 +2378,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SwingingCoupledSpringPendulum
   pivotPoint: {fileID: 2135093993}
-  ropeSegments: 20
-  sagFactor: 0.04
-  ropeWidthTop: 0.6
-  ropeWidthBottom: 0.2
+  uiCanvas: {fileID: 0}
+  mainCamera: {fileID: 0}
+  rope:
+    restLength: 70
+    stiffness: 50
+    damping: 5
+    minLengthRatio: 0.5
+    maxLengthRatio: 2
+    segments: 20
+    sagFactor: 0.04
+    width: 0.08
+    colorRelaxed: {r: 0.85, g: 0.55, b: 0.1, a: 1}
+    colorTensed: {r: 0.95, g: 0.15, b: 0.1, a: 1}
   L0: 70
   m0: 2
   g: 981
   b: 0.1
-  k_rope: 50
-  c_rope: 10
   windSpeed: 0
   windDirection: {x: 1, y: 0, z: 0}
   windCoeff: 0.5
@@ -11088,19 +11095,6 @@ MonoBehaviour:
   colorDropdown: {fileID: 1557551735}
   surfaceTypeDropdown: {fileID: 1778669906}
   restartButton: {fileID: 220694250}
-  lengthRange: {x: 0.1, y: 10}
-  elasticityRange: {x: 0, y: 2000}
-  ropeDampingRange: {x: 0, y: 50}
-  airResistanceRange: {x: 0, y: 2}
-  gravityRange: {x: 0, y: 2000}
-  initialAngleRange: {x: -90, y: 90}
-  initialOmegaRange: {x: -10, y: 10}
-  viscosityRange: {x: 0, y: 5}
-  paintAmountRange: {x: 0, y: 2000}
-  windSpeedRange: {x: -20, y: 20}
-  temperatureRange: {x: -10, y: 60}
-  humidityRange: {x: 0, y: 100}
-  tiltRange: {x: 0, y: 90}
 --- !u!114 &1603322438
 MonoBehaviour:
   m_ObjectHideFlags: 0
