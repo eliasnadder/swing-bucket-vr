@@ -57,6 +57,10 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float initialOmega = 0f;
     public float initialPhi = 0f;
 
+    public float PivotX = 0f;
+    public float PivotY = 0f;
+    public int maxSwings = 0;
+
     [Header("Editor Helper")]
     [Tooltip("في وضع التحرير فقط (Edit Mode): يحسب θ₀ وL0 وφ₀ تلقائياً من موضع السطل الحالي نسبة لنقطة التعليق الثابتة، بدلاً من تحريك نقطة التعليق نفسها")]
     public bool autoSyncFromScenePosition = true;

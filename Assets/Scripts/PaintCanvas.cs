@@ -13,6 +13,23 @@ public class PaintCanvas : MonoBehaviour
         /* Roughness     */ { 0.07f, 0.20f, 0.70f, 0.05f },
     };
 
+    // ── Per-surface natural spread factors (Section 2.6.3.4 — Cohesion & Adhesion) ──
+    // Indices: Canvas=0, Wood=1, Metal=2, Paper=3 (matches the existing SurfaceType enum).
+    //   • CohesionFactor[s]: how strongly paint spreads OUTWARD on surface s (1=totally spread, 0=no spread).
+    //   • AdhesionFactor[s]:  how strongly paint BINDS TIGHT on surface s  (1=totally tight, 0=loose).
+    //   • Combined multiplier:  1 + cohesion·c[s] − adhesion·a[s],
+    //     clamped to [0.4, 2.0] so even extreme sliders can't blow up the canvas.
+    // Calibration intuition (recall Inverse-σ scaling rule):
+    //   — Smooth "Canvas" (c=1.0, a=0.20) at default sliders → x ≈ 1 + 0.4·1.0 − 0.6·0.20 = 1.28  (≈28% wider).
+    //   — Smooth "Paper"  (c=0.90, a=0.35) at default sliders → x ≈ 1 + 0.4·0.90 − 0.6·0.35 = 1.15  (≈15% wider).
+    //   — Rough "Wood"    (c=0.30, a=0.85) at default sliders → x ≈ 1 + 0.4·0.30 − 0.6·0.85 = 0.61  (≈39% tighter).
+    //   — Rough "Metal"   (c=0.10, a=1.00) at default sliders → x ≈ 1 + 0.4·0.10 − 0.6·1.00 = 0.44  (≈56% tighter).
+    // χ (visually) — at the same impactSpeed and same paintVolume, a Canvas splat will be
+    // ~3× the pixel radius of a Metal splat at default slider values. Tune
+    // `cohesionStrength` / `adhesionStrength` in [0,1] to taste.
+    private static readonly float[] CohesionFactor = { 1.00f, 0.30f, 0.10f, 0.90f };  // Canvas, Wood, Metal, Paper
+    private static readonly float[] AdhesionFactor  = { 0.20f, 0.85f, 1.00f, 0.35f };  // Canvas, Wood, Metal, Paper
+
     int   SurfaceIdx => (int)surfaceType;
     float Absorption => SurfaceTable[0, SurfaceIdx];
     float Friction   => SurfaceTable[1, SurfaceIdx];
@@ -52,6 +69,22 @@ public class PaintCanvas : MonoBehaviour
     public float viscosityRadiusScale   = 0.15f;
     [Tooltip("نصف سماكة التلاصق — بوحدات Unity")]
     public float contactThickness = 5f;
+
+    // ── Section 2.6.3.4 — Cohesion & Adhesion ──
+    // `cohesionStrength` scales the splat radius UP on surfaces whose
+    // `CohesionFactor[s]` > 0 (smooth Canvas / Paper); `adhesionStrength` pulls
+    // the radius DOWN on surfaces whose `AdhesionFactor[s]` > 0 (rough Wood /
+    // Metal). See the per-surface factor table at the top of this file for the
+    // numerics, and the comment block inside `ApplySplat(...)` for the σ-rule
+    // derivation. Default values produce visibly larger splats on smooth vs
+    // rough surfaces — tune sliders in [0,1] to taste.
+    [Header("Cohesion & Adhesion (Section 2.6.3.4)")]
+    [Range(0f, 1f)]
+    [Tooltip("Cohesion factor — paint that spreads outward on smooth surfaces (wider splat). 0 = no cohesion (splat unaffected by cohesion).")]
+    public float cohesionStrength = 0.4f;
+    [Range(0f, 1f)]
+    [Tooltip("Adhesion factor — paint that binds tight on rough surfaces (tighter splat). 0 = no adhesion (splat unaffected by adhesion).")]
+    public float adhesionStrength = 0.6f;
 
     // ── Private ──
     private Texture2D paintTexture;
@@ -308,6 +341,28 @@ public class PaintCanvas : MonoBehaviour
         float scaledImpact = impactSpeed * (20f / canvasSpan) * 1.5f;
         float radiusPx    = Mathf.Max(sizePx, 0.5f) + scaledImpact;
         radiusPx          = Mathf.Clamp(radiusPx, 1f, textureWidth * 0.1f);
+
+        // ── Section 2.6.3.4 — Cohesion & Adhesion σ-scaling ──
+        // The Weber-derived radiusPx above is the BASE radius. We then
+        // multiply by `surfaceMultiplier = 1 + cohesion · c[s] − adhesion · a[s]`,
+        // where c[s] and a[s] are the per-surface natural-spread factors
+        // (Canvas=0, Wood=1, Metal=2, Paper=3). This composes SMOOTHLY with
+        // the existing tilting+impact-velocity path; no existing line is
+        // touched. Result at default sliders:
+        //   • Canvas  → 1.28× (≈28% wider splat; cohesive, paint spreads).
+        //   • Paper   → 1.15× (≈15% wider).
+        //   • Wood    → 0.61× (≈39% tighter; adhesive, paint clumps).
+        //   • Metal   → 0.44× (≈56% tighter; no cohesion at all, binds hard).
+        // Clamped to [0.4, 2.0] so extreme sliders can't blow up the canvas.
+        // The same `radiusPx` is then RE-clamped below to `[1 px, 10% texture]`,
+        // so very tiny splats remain pixel-stable and very large splats stay
+        // inside the texture bounds.
+        int   surfaceIdx          = SurfaceIdx;
+        float cohesionSurfaceBias = cohesionStrength * CohesionFactor[surfaceIdx];
+        float adhesionSurfaceBias = adhesionStrength * AdhesionFactor[surfaceIdx];
+        float surfaceMultiplier   = 1f + cohesionSurfaceBias - adhesionSurfaceBias;
+        surfaceMultiplier         = Mathf.Clamp(surfaceMultiplier, 0.4f, 2.0f);
+        radiusPx                  = Mathf.Clamp(radiusPx * surfaceMultiplier, 1f, textureWidth * 0.1f);
 
         int tiltShiftInt = Mathf.RoundToInt(
             Mathf.Sin(tiltAngle * Mathf.Deg2Rad) * radiusPx * Friction);

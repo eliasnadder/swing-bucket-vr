@@ -36,6 +36,28 @@ public class SPHFluidSolver : MonoBehaviour
     [Tooltip("لون الطلاء الحالي")]
     public Color currentPaintColor = Color.red;
 
+    // ── Bernoulli extension (Section 2.4.4.2) ──
+    //   Q = Cd · A · sqrt( 2·g_eff·h_paint  +  ½·|v_tang|² )
+    // When ON the bucket's horizontal swing adds a dynamic pressure head, so the
+    // drip rate spikes as the user slings the bucket sideways. OFF returns to the
+    // pure-Torricelli sqrt(2·g_eff·h) form.
+    [Header("Bernoulli Torricelli Extension (Section 2.4.4.2)")]
+    [Tooltip("يضيف رأس حركي ½·|v|² من حركة السطل الأفقية إلى سرعة التدفق")]
+    public bool useBernoulliApproximation = true;
+
+    // ── Surface tension / cohesion (Section 2.4.2.3) ──
+    //   F_surface_i = surfaceTensionCoeff · CohesionForceGradient(p_i, neighbour)
+    // where CohesionForceGradient = Poly6'(|r|, h) · r̂  (Poly6's analytical 3D
+    // gradient) and is implemented inline in ComputeForces. Default coefficient
+    // is zero so existing scenes are unchanged; raise it to make nearby droplets
+    // cling to each other.
+    [Header("Surface Tension / Cohesion (Section 2.4.2.3)")]
+    [Range(0f, 100f)]
+    [Tooltip("معامل التماسك — قوة الجذب بين الجسيمات القريبة (ملاحظة: التوازن الافتراضي 0 لا يُغيّر السلوك)")]
+    public float surfaceTensionCoeff = 0f;
+    [Tooltip("مسافة قص (cm) — لا توجد قوة تماسك عند مسافاتٍ أقل من هذه القيمة لتجنّب الانفرادية عند التماس القريب جداً")]
+    public float surfaceTensionMinDist = 0f;
+
     // ── Environment (Section 2.7) ──
     [Header("Environment")]
     [Tooltip("درجة الحرارة (°C) — تؤثر على اللزوجة الفعّالة")]
@@ -55,6 +77,18 @@ public class SPHFluidSolver : MonoBehaviour
     public float particlesPerVolumeUnit = 50000f;
     [Tooltip("أقصى عدد جسيمات تُصدر في فريم واحد")]
     public int   maxSpawnPerFrame = 20;
+
+    // ── Coalescence (Section 2.5.1) ──
+    //   When ON, particles within `coalescenceRadius` whose relative speed is below
+    //   `maxCoalesceRelSpeed` are merged into one — drop a denser, longer-lived
+    //   droplet cluster. Default OFF preserves existing scenes.
+    [Header("Coalescence (Section 2.5.1)")]
+    [Tooltip("دمج الجسيمات القريبة ذات السرعات المتشابهة (يقاف افتراضي لتجنّب تغيير المشهد)")]
+    public bool enableCoalescence = false;
+    [Tooltip("نصف قطر الدمج (cm)")]
+    public float coalescenceRadius = 1f;
+    [Tooltip("أقصى فرق سرعة للسماح بالدمج (cm/s)")]
+    public float maxCoalesceRelSpeed = 5f;
 
     // ── Private state ──
     private float currentVolume;
@@ -138,9 +172,18 @@ public class SPHFluidSolver : MonoBehaviour
         ComputeDensities();
         ComputeForces();
         Integrate(dt);
+
+        // ── Coalescence pass (Section 2.5.1) ──
+        // Run AFTER Integrate so neighbour queries see the post-step positions.
+        // Spatial hash is rebuilt with the latest particle positions.
+        if (enableCoalescence && particles.Count >= 2)
+        {
+            spatialHash.Rebuild(particles);
+            CoalesceParticles();
+        }
     }
 
-    // ── Torricelli emission (Section 2.4) ──
+    // ── Torricelli emission with optional Bernoulli extension (Section 2.4) ──
     private void EmitParticles(float dt)
     {
         if (currentVolume <= 0f) { CurrentFlowRate = 0f; return; }
@@ -149,7 +192,31 @@ public class SPHFluidSolver : MonoBehaviour
         float geff  = Mathf.Max(1f, pendulum.EffectiveGravity);
         float area  = Mathf.PI * Mathf.Pow(orificeDiameter * 0.5f, 2f);
         float safeH = Mathf.Max(0f, h_paint);
-        float v_out = Mathf.Sqrt(2f * geff * safeH);
+
+        // ── Dynamic-head (swing) velocity term — Section 2.4.4.2 ──
+        // |v_tang| is taken as the bucket's full planar speed (component perpendicular
+        // to gravity). The radial (along-rope) component contributes only to
+        // hydrostatic pressure which is already captured by g_eff·h, so we project
+        // it out before taking the magnitude.
+        Vector3 bucketVel = pendulum.BucketVelocity;
+        Vector3 tangentialVel = Vector3.ProjectOnPlane(bucketVel, Vector3.up);
+        float vtMag = tangentialVel.magnitude;
+
+        float v_out;
+        if (useBernoulliApproximation)
+        {
+            // Q = Cd · A · sqrt(2·g_eff·h + ½·|v_tang|²)
+            // The ½·v² term is the kinetic-energy-per-unit-mass that the swinging
+            // bucket transmits to the fluid — physically, the fluid "ahead" of the
+            // bucket's swing direction gets pushed out faster.
+            v_out = Mathf.Sqrt(Mathf.Max(0f, 2f * geff * safeH + 0.5f * vtMag * vtMag));
+        }
+        else
+        {
+            // Pure Torricelli — original section 2.4 form.
+            v_out = Mathf.Sqrt(2f * geff * safeH);
+        }
+
         float Q     = Cd * area * v_out;
         CurrentFlowRate = Q;
 
@@ -173,7 +240,6 @@ public class SPHFluidSolver : MonoBehaviour
                 Random.Range(-0.02f, 0.02f), 0f,
                 Random.Range(-0.02f, 0.02f));
 
-            Vector3 bucketVel = pendulum != null ? pendulum.BucketVelocity : Vector3.zero;
             Vector3 windForce = windDirection.normalized * windCoeff * windSpeed;
 
             AddParticle(spawnPos, bucketVel + Vector3.down * v_out + windForce * dt, currentPaintColor);
@@ -234,6 +300,25 @@ public class SPHFluidSolver : MonoBehaviour
         Vector3 windForce = windDirection.normalized * windCoeff * windSpeed * windSpeed;
         float   mu        = EffectiveViscosity;
 
+        // Pre-compute Poly6 gradient normalisation constants for surface tension.
+        // Poly6(r,h) = (315 / 64π h⁹) · (h² − r²)³
+        // dPoly6/dr  = −6·(315/(64π h⁹)) · r · (h² − r²)²
+        // ∇_i Poly6|{r = p_i − p_j} = dPoly6/dr · r̂  =  −6·(315/(64π h⁹)) · (h²−r²)² · rVec
+        // The leading coefficient is negative; thus ∇_i Poly6 points OPPOSITE to rVec,
+        // i.e. toward particle j. That is the attractive direction. The cohesion
+        // coefficient `surfaceTensionCoeff` is positive in the slider, and we apply
+        // it directly — F_surface_i = surfaceTensionCoeff · ∇_i Poly6 — to make the
+        // force attractive. (Equivalent up to one sign-flip to Müller-style
+        // "−σ · Poly6Kernel_gradient(r,h)" since the analytical gradient already
+        // points toward the neighbour.)
+        bool   wantCohesion = surfaceTensionCoeff > 0f;
+        float  invH9        = wantCohesion ? 1f / Mathf.Pow(smoothingRadius, 9f) : 0f;
+        // (315 − 64·π·k_grad)/64·π  where k_grad coalesces two constants we'll absorb
+        // implicitly; we keep −6·315/(64π) = −945/32 as the closed-form coefficient.
+        const float POLY6GRAD_COEFF = -945f / 32f;
+        float poly6Base = wantCohesion ? POLY6GRAD_COEFF * invH9 : 0f;
+        float minDistSq = surfaceTensionMinDist * surfaceTensionMinDist;
+
         for (int i = 0; i < particles.Count; i++)
         {
             SPHParticle particle = particles[i];
@@ -256,6 +341,19 @@ public class SPHFluidSolver : MonoBehaviour
 
                 float viscTerm = SPHKernel.ViscosityLaplacian(dist, smoothingRadius);
                 force += mu * particleMass * (nb.velocity - particle.velocity) / nbDensity * viscTerm;
+
+                // ── Surface tension / cohesion (Section 2.4.2.3) ──
+                // Inlined Poly6 gradient to avoid touching SPHKernel.cs.
+                // Skip when the pair is closer than surfaceTensionMinDist
+                // (a configurable "no-tension at very close range" cutoff
+                // that keeps the force finite when two droplets touch).
+                if (wantCohesion && dist > surfaceTensionMinDist && dist * dist > minDistSq)
+                {
+                    float ratio2   = smoothingRadius * smoothingRadius - dist * dist;
+                    // ∇_i Poly6 = poly6Base · (h²−r²)² · rVec
+                    Vector3 gradPoly6 = poly6Base * (ratio2 * ratio2) * r;
+                    force += surfaceTensionCoeff * gradPoly6 * particleMass;
+                }
             }
 
             force += particle.density * gravity;
@@ -294,6 +392,87 @@ public class SPHFluidSolver : MonoBehaviour
             }
 
             particles[i] = particle;
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // Coalescence pass (Section 2.5.1)
+    //
+    // Iteration order (reverse):
+    //   • Outer i descends from particles.Count−1 → 0, so when RemoveAt(i)
+    //     removes particle i the remaining particles at lower indices are NOT
+    //     re-indexed under our cursor.
+    //   • Inner loop scans spatial-hash neighbours of particle i, picks the
+    //     first valid candidate j with j < i (lower index survives; higher
+    //     index is removed). This deduplicates unordered (i,j) and (j,i) pairs.
+    //
+    // Merge rule (chosen & documented — equal-mass case, easily reversible):
+    //   • Position: p_merged = (p_i + p_j) · 0.5               (arithmetic mid-point)
+    //     — equivalent to mass-weighted average when m_i == m_j.
+    //   • Velocity: v_merged = (v_i + v_j) · 0.5               (arithmetic mid-point)
+    //     — equivalent to momentum-weighted average when m_i == m_j (since
+    //       (m·v_i + m·v_j)/(2m) = (v_i + v_j)/2).
+    //   • Color:    c_merged_rgba = ((c_i.r + c_j.r)/2, ..., (c_i.a + c_j.a)/2)
+    //   • Density / pressure: arithmetic mean (recomputed next frame anyway).
+    //   • force: zeroed.
+    //   • alive: true.
+    //
+    // The reverse-iteration + lower-index survivor rule guarantees no particle
+    // is processed twice and no pair is merged twice.
+    private void CoalesceParticles()
+    {
+        if (particles.Count < 2) return;
+
+        float r2 = coalescenceRadius * coalescenceRadius;
+
+        // Iterate from end to start so RemoveAt(idx) doesn't disturb unprocessed
+        // (lower-indexed) entries.
+        for (int i = particles.Count - 1; i >= 0; i--)
+        {
+            SPHParticle pa = particles[i];
+            if (!pa.alive) continue;          // belt-and-braces; alive is currently always true.
+
+            spatialHash.GetNeighbors(pa.position, neighborIndices);
+
+            int mergeWith = -1;
+            for (int k = 0; k < neighborIndices.Count; k++)
+            {
+                int j = neighborIndices[k];
+                if (j == i) continue;          // skip self
+                if (j >= i) continue;          // dedup: only merge with lower-index partners
+
+                SPHParticle candidate = particles[j];
+                Vector3 delta = pa.position - candidate.position;
+                float distSq = delta.sqrMagnitude;
+                if (distSq > r2) continue;
+
+                float relSpeed = (pa.velocity - candidate.velocity).magnitude;
+                if (relSpeed > maxCoalesceRelSpeed) continue;
+
+                mergeWith = j;
+                break;                         // first valid candidate wins (one merge per outer i)
+            }
+
+            if (mergeWith < 0) continue;
+
+            SPHParticle pb = particles[mergeWith];
+            SPHParticle merged = new SPHParticle
+            {
+                position = (pa.position + pb.position) * 0.5f,
+                velocity = (pa.velocity + pb.velocity) * 0.5f,
+                force    = Vector3.zero,
+                density  = (pa.density + pb.density) * 0.5f,
+                pressure = (pa.pressure + pb.pressure) * 0.5f,
+                color    = new Color(
+                    (pa.color.r + pb.color.r) * 0.5f,
+                    (pa.color.g + pb.color.g) * 0.5f,
+                    (pa.color.b + pb.color.b) * 0.5f,
+                    (pa.color.a + pb.color.a) * 0.5f),
+                alive    = true
+            };
+
+            particles[mergeWith] = merged;
+            particles.RemoveAt(i);
         }
     }
 }

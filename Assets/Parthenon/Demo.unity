@@ -2530,16 +2530,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f96bbce74e08b7e989924206b084dfb8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BucketBuilder
-  fluidSystem: {fileID: 0}
+  fluidSystem: {fileID: 268129426}
   bucketModelPrefab: {fileID: 0}
   bucketModelLocalPosition: {x: 0, y: 0, z: 0}
   bucketModelLocalEulerAngles: {x: 0, y: 0, z: 0}
   bucketModelLocalScale: {x: 1, y: 1, z: 1}
-  bottomRadius: 0.18
-  topRadius: 0.22
-  bucketHeight: 0.4
-  wallThickness: 0.015
-  maxPaintHeight: 0.3
+  bottomRadius: 18
+  topRadius: 22
+  bucketHeight: 40
+  wallThickness: 1.5
+  maxPaintHeight: 30
   radialSegments: 28
 --- !u!114 &268129425
 MonoBehaviour:
@@ -2584,7 +2584,7 @@ MonoBehaviour:
   restDensity: 1000
   gasConstant: 2000
   viscosity: 0.25
-  gravity: {x: 0, y: -9.81, z: 0}
+  gravity: {x: 0, y: -981, z: 0}
   damping: 0.02
   timeStep: 0.0166667
   useFull3D: 1
@@ -6613,7 +6613,7 @@ MonoBehaviour:
   textureHeight: 1024
   backgroundColor: {r: 1, g: 1, b: 1, a: 1}
   worldSize: {x: 150, y: 250}
-  plane: 0
+  plane: 1
   flipU: 1
   flipV: 0
   swapUV: 0
@@ -6624,9 +6624,9 @@ MonoBehaviour:
   weberRadiusScale: 0.002
   sigma: 0.05
   paintOpacity: 0.75
-  defaultSplatRadiusWorld: 0.5
+  defaultSplatRadiusWorld: 30
   viscosityRadiusScale: 0.15
-  contactThickness: 2
+  contactThickness: 5
 --- !u!1 &932867577
 GameObject:
   m_ObjectHideFlags: 0
@@ -11037,7 +11037,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CanvasExporter
   canvasTarget: {fileID: 0}
-  modernCanvasTarget: {fileID: 0}
+  modernCanvasTarget: {fileID: 931284153}
   exportButton: {fileID: 382752035}
 --- !u!4 &1603322436
 Transform:
