@@ -35,6 +35,15 @@ public class SimulationUIManager : MonoBehaviour
     public Slider initialOmegaSlider;
     public TextMeshProUGUI initialOmegaValueText;
 
+    public Slider numberOfSwingsSlider;
+    public TextMeshProUGUI numberOfSwingsValueText;
+
+    public Slider xpivotSlider;
+    public TextMeshProUGUI xpivotValueText;
+
+    public Slider ypivotSlider;
+    public TextMeshProUGUI ypivotValueText;
+
     // ============== Fluid ==============
     [Header("Fluid Sliders")]
     public Slider orificeSlider;
@@ -45,6 +54,11 @@ public class SimulationUIManager : MonoBehaviour
 
     public Slider paintAmountSlider;
     public TextMeshProUGUI paintAmountValueText;
+
+    // ============== Bucket ==============
+    [Header("Bucket Sliders")]
+    public Slider bucketRadiusSlider;
+    public TextMeshProUGUI bucketRadiusValueText;
 
     // ============== Environment (Section 2.7) ==============
     [Header("Environment Sliders")]
@@ -61,6 +75,12 @@ public class SimulationUIManager : MonoBehaviour
     [Header("Canvas Sliders")]
     public Slider tiltSlider;
     public TextMeshProUGUI tiltValueText;
+
+    public Slider canvasWidthSlider;
+    public TextMeshProUGUI canvasWidthValueText;
+
+    public Slider canvasHeightSlider;
+    public TextMeshProUGUI canvasHeightValueText;
 
     // ============== Dropdowns ==============
     [Header("Dropdowns")]
@@ -97,6 +117,12 @@ public class SimulationUIManager : MonoBehaviour
     public Vector2 temperatureRange = new Vector2(-10f, 60f);
     public Vector2 humidityRange = new Vector2(0f, 100f);      // %
     public Vector2 tiltRange = new Vector2(0f, 90f);       // درجة
+    public Vector2 pivotXRange = new Vector2(-75f, 75f);     // cm (PivotX)
+    public Vector2 pivotYRange = new Vector2(0f, 200f);      // cm (PivotY)
+    public Vector2 bucketRadiusRange = new Vector2(5f, 50f); // cm (bottomRadius × 100)
+    public Vector2 numberOfSwingsRange = new Vector2(0f, 50f); // عدّاد (maxSwings)
+    public Vector2 canvasWidthRange = new Vector2(50f, 500f);  // cm (worldSize.x × 100)
+    public Vector2 canvasHeightRange = new Vector2(50f, 500f); // cm (worldSize.y × 100)
 
     // ============== Color Palette ==============
     private static readonly Color[] PaintColors =
@@ -136,6 +162,12 @@ public class SimulationUIManager : MonoBehaviour
         SetSliderRange(temperatureSlider, temperatureRange);
         SetSliderRange(humiditySlider, humidityRange);
         SetSliderRange(tiltSlider, tiltRange);
+        SetSliderRange(xpivotSlider, pivotXRange);
+        SetSliderRange(ypivotSlider, pivotYRange);
+        SetSliderRange(bucketRadiusSlider, bucketRadiusRange);
+        SetSliderRange(numberOfSwingsSlider, numberOfSwingsRange);
+        SetSliderRange(canvasWidthSlider, canvasWidthRange);
+        SetSliderRange(canvasHeightSlider, canvasHeightRange);
 
         // orificeSlider يبقى خاصاً لأن نطاقه يعتمد على BucketBuilder
         if (bucketBuilder != null && orificeSlider != null)
@@ -163,6 +195,9 @@ public class SimulationUIManager : MonoBehaviour
             SetSlider(gravitySlider, pendulumEngine.g);
             SetSlider(initialAngleSlider, pendulumEngine.initialTheta);
             SetSlider(initialOmegaSlider, pendulumEngine.initialOmega);
+            SetSlider(numberOfSwingsSlider, pendulumEngine.maxSwings);
+            SetSlider(xpivotSlider, pendulumEngine.PivotX);
+            SetSlider(ypivotSlider, pendulumEngine.PivotY);
         }
         if (fluidEngine != null)
         {
@@ -173,9 +208,17 @@ public class SimulationUIManager : MonoBehaviour
             SetSlider(temperatureSlider, fluidEngine.temperature);
             SetSlider(humiditySlider, fluidEngine.humidity * 100f);
         }
+        if (bucketBuilder != null)
+        {
+            // bottomRadius داخلياً بالمتر، يحول إلى سم للعرض في الـ Slider
+            SetSlider(bucketRadiusSlider, bucketBuilder.bottomRadius * 100f);
+        }
         if (canvasEngine != null)
         {
             SetSlider(tiltSlider, canvasEngine.tiltAngle);
+            // worldSize داخلياً بالمتر، يحول إلى سم للعرض في الـ Slider
+            SetSlider(canvasWidthSlider, canvasEngine.worldSize.x * 100f);
+            SetSlider(canvasHeightSlider, canvasEngine.worldSize.y * 100f);
         }
     }
 
@@ -192,6 +235,9 @@ public class SimulationUIManager : MonoBehaviour
         Bind(gravitySlider, v => { if (pendulumEngine) pendulumEngine.g = v; });
         Bind(initialAngleSlider, v => { if (pendulumEngine) pendulumEngine.initialTheta = v; });
         Bind(initialOmegaSlider, v => { if (pendulumEngine) pendulumEngine.initialOmega = v; });
+        Bind(numberOfSwingsSlider, v => { if (pendulumEngine) pendulumEngine.maxSwings = Mathf.RoundToInt(v); });
+        Bind(xpivotSlider, v => { if (pendulumEngine) pendulumEngine.PivotX = v; });
+        Bind(ypivotSlider, v => { if (pendulumEngine) pendulumEngine.PivotY = v; });
 
         // Fluid
         Bind(orificeSlider, v => { if (fluidEngine) fluidEngine.orificeDiameter = v; });
@@ -207,8 +253,25 @@ public class SimulationUIManager : MonoBehaviour
         Bind(temperatureSlider, v => { if (fluidEngine) fluidEngine.temperature = v; });
         Bind(humiditySlider, v => { if (fluidEngine) fluidEngine.humidity = v / 100f; });
 
+        // Bucket
+        Bind(bucketRadiusSlider, v => { if (bucketBuilder) bucketBuilder.bottomRadius = v / 100f; });
+
         // Canvas
         Bind(tiltSlider, v => { if (canvasEngine) canvasEngine.tiltAngle = v; });
+        Bind(canvasWidthSlider, v =>
+        {
+            if (!canvasEngine) return;
+            Vector2 s = canvasEngine.worldSize;
+            s.x = v / 100f;
+            canvasEngine.worldSize = s;
+        });
+        Bind(canvasHeightSlider, v =>
+        {
+            if (!canvasEngine) return;
+            Vector2 s = canvasEngine.worldSize;
+            s.y = v / 100f;
+            canvasEngine.worldSize = s;
+        });
 
         // Dropdowns
         if (colorDropdown != null) colorDropdown.onValueChanged.AddListener(ApplyColor);
@@ -252,6 +315,12 @@ public class SimulationUIManager : MonoBehaviour
         SetLabel(temperatureValueText, temperatureSlider, v => $"{v:F0} °C");
         SetLabel(humidityValueText, humiditySlider, v => $"{v:F0} %");
         SetLabel(tiltValueText, tiltSlider, v => $"{v:F0}°");
+        SetLabel(numberOfSwingsValueText, numberOfSwingsSlider, v => $"{v:F0}");
+        SetLabel(xpivotValueText, xpivotSlider, v => $"{v:F1} cm");
+        SetLabel(ypivotValueText, ypivotSlider, v => $"{v:F1} cm");
+        SetLabel(bucketRadiusValueText, bucketRadiusSlider, v => $"{v:F1} cm");
+        SetLabel(canvasWidthValueText, canvasWidthSlider, v => $"{v:F0} cm");
+        SetLabel(canvasHeightValueText, canvasHeightSlider, v => $"{v:F0} cm");
     }
 
     static void SetLabel(TextMeshProUGUI label, Slider slider, System.Func<float, string> format)

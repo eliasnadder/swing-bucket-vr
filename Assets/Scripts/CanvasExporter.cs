@@ -10,6 +10,14 @@ public class CanvasExporter : MonoBehaviour
     [Header("UI Export Button")]
     public UnityEngine.UI.Button exportButton;
 
+    [Header("Experiment JSON")]
+    public UnityEngine.UI.Button exportJsonButton;     // null until wired in scene
+
+    void Awake()
+    {
+        if (exportJsonButton != null) exportJsonButton.onClick.AddListener(() => ExperimentSaver.SaveExperimentStatic("user-triggered"));
+    }
+
     void Start()
     {
         if (exportButton != null)

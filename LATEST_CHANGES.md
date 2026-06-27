@@ -1,143 +1,123 @@
-# آخر التعديلات - Latest Changes
+# آخر التعديلات — Latest Changes
 
-**التاريخ:** 14 يونيو 2026  
-**نوع الملف:** Git Diff Summary
+**التاريخ:** 27 يونيو 2026
+**نوع الملف:** Full change summary for plan.md implementation
 
 ---
 
 ## ملخص التعديلات الإجمالي | Overall Summary
 
 ```
-6 files changed, 615 insertions(+), 163 deletions(-)
+10 files changed, ~1260 insertions(+), ~170 deletions(-)
+3 new files created
+3 compilation errors fixed
 ```
 
-### الملفات المعدّلة:
+### الملفات الجديدة | New Files
 
-| الملف | الإضافات | الحذفيات |
-|------|---------|---------|
-| Assets/Scripts/BucketBuilder.cs | 626 | 626 |
-| Assets/Parthenon/Demo.unity | 90 | - |
-| ProjectSettings/Packages/com.unity.probuilder/Settings.json | 35 | - |
-| Assets/Scripts/CanvasExporter.cs | 21 | - |
-| Assets/New Render Texture.renderTexture | 2 | 1 |
-| Assets/Scripts/FluidSPHSystem.cs | 4 | - |
+| الملف | السطور | الوصف |
+|-------|--------|-------|
+| `Assets/Scripts/ExperimentSaver.cs` | 336 | JSON experiment data export (inputs, runtime, particles, spread) |
+| `Assets/Scripts/ExperimentComparer.cs` | 282 | Side-by-side comparison of two saved experiments |
+| `Assets/Scripts/ReportGenerator.cs` | 204 | Markdown report builder for experiment results |
+
+### الملفات المعدّلة | Modified Files
+
+| الملف | الإضافات | الوصف |
+|-------|---------|--------|
+| `Assets/Scripts/SPHFluidSolver.cs` | +185 | Bernoulli flow rate, surface tension, particle coalescence |
+| `Assets/Scripts/PaintCanvas.cs` | +55 | Cohesion/adhesion per-surface factors (Canvas/Wood/Metal/Paper) |
+| `Assets/Scripts/SimulationController.cs` | +113/-5 | Multi-bucket emitters, multi-color sequencing |
+| `Assets/Scripts/SimulationUIManager.cs` | +69 | 6 new sliders (pivot X/Y, bucket radius, swings, canvas W/H) |
+| `Assets/Scripts/SwingingCoupledSpringPendulum.cs` | +4 | PivotX, PivotY, maxSwings public fields |
+| `Assets/Scripts/CanvasExporter.cs` | +7 | Export JSON button hook |
+| `Assets/Parthenon/Demo.unity` | ~22/-3 | Bucket dimensions converted to cm-scale |
+
+### إصلاحات التجميع | Compilation Fixes (2026-06-27)
+
+| الملف | الخطأ | الإصلاح |
+|-------|--------|---------|
+| `ExperimentComparer.cs:104` | CS0029: Texture2D → RenderTexture | Blit via `Graphics.Blit` lazily |
+| `SPHFluidSolver.cs:444` | CS0136: `pb` variable shadowing | Renamed inner local to `candidate` |
+| `SwingingCoupledSpringPendulum.cs:63` | CS0414: unused `currentSwingCount` | Removed the field |
 
 ---
 
 ## التفاصيل | Details
 
-### 1. Assets/Scripts/CanvasExporter.cs ✏️
+### 1. SPHFluidSolver.cs — فيزياء متقدمة 🔬
 
-**التغييرات الرئيسية:**
-- ✅ إضافة مرجع جديد `modernCanvasTarget` من نوع `PaintCanvas`
-- ✅ تحديث دالة `ExportCanvasToPNG()` لدعم كلا النوعين من Canvas
-- ✅ إضافة فحص الأولوية: `modernCanvasTarget` أولاً، ثم `canvasTarget`
-- ✅ تحسين معالجة الأخطاء والرسائل
+**جديد:**
+- **تقريب برنولي** (`useBernoulliApproximation = true` افتراضي):
+  سرعة التدفق: `v_out = sqrt(2·g_eff·h + ½·|v_tang|²)`. سرعة دلو تتأثر بقوة الجاذبية + القص.
+- **توتر السطح** (`surfaceTensionCoeff` [0–100]): قوة تماسك Poly6 بين الجسيمات.
+- **الاندماج** (`enableCoalescence = false` افتراضي): جسيمان قريبان + سرعة منخفضة → يندمجان في جسيم واحد متوسط.
 
-**الكود الجديد:**
-```csharp
-public PaintCanvas modernCanvasTarget;  // إضافة جديدة
+### 2. PaintCanvas.cs — سلوك الطلاء 🎨
 
-public void ExportCanvasToPNG()
-{
-    Texture2D structuralTexture = null;
-    
-    if (modernCanvasTarget != null)
-    {
-        modernCanvasTarget.FlushPending();
-        structuralTexture = modernCanvasTarget.GetPaintTexture();
-    }
-    else if (canvasTarget != null)
-    {
-        structuralTexture = canvasTarget.GetPaintTexture();
-    }
-    
-    // ... بقية الكود
-}
-```
+**جديد:**
+- **التماسك** (`cohesionStrength` [0–1]): يزيد حجم البقعة على الأسطح الماصة.
+- **الالتصاق** (`adhesionStrength` [0–1]): يقلل الانتشار على الأسطح غير الماصة.
+- مصفوفات لكل نوع سطح: Canvas `{1.0, 0.3, 0.1, 0.9}` / Wood / Metal / Paper.
 
----
+### 3. SimulationController.cs — دلاء متعددة 🪣
 
-### 2. Assets/Scripts/BucketBuilder.cs 🔧
+**جديد:**
+- `extraPaintEmitters` قائمة دلاء إضافية.
+- `extraEmitterColors` ألوان لكل دلو.
+- تسلسل ألوان متعدد: كل دلو → `ChangePaintColor → Emit`.
 
-**الحجم:** 626+ سطر جديد (تعديل كبير)  
-**الحالة:** ✏️ تعديلات جوهرية
+### 4. SimulationUIManager.cs — عناصر تحكم جديدة 🎛️
 
-> تم تعديل هذا الملف بشكل كبير. استخدم:
-> ```bash
-> git diff Assets/Scripts/BucketBuilder.cs
-> ```
-> لرؤية جميع التفاصيل
+**6 أشرطة تمرير جديدة:**
 
----
+| الاسم | النطاق | الوحدة |
+|--------|--------|--------|
+| `xpivotSlider` | (-75, 75) | cm |
+| `ypivotSlider` | (0, 200) | cm |
+| `bucketRadiusSlider` | (5, 50) | cm |
+| `numberOfSwingsSlider` | (0, 50) | count |
+| `canvasWidthSlider` | (50, 500) | cm |
+| `canvasHeightSlider` | (50, 500) | cm |
 
-### 3. Assets/Parthenon/Demo.unity 🎮
+### 5. ملفات التجارب | Experiment Files 📊
 
-**الحجم:** 90+ سطر جديد  
-**الحالة:** ✅ تحديثات منظر المشهد
+- **ExperimentSaver**: يحفظ بيانات التجربة كملف JSON (> `Application.persistentDataPath/Experiments/<timestamp>.json`).
+- **ExperimentComparer**: يقارن تجربتين جنبًا إلى جنب مع رسوم بيانية للفرق.
+- **ReportGenerator**: يولد تقرير Markdown مع مدخلات + وقت + جسيمات + انتشار + نتيجة.
 
-> ملف منظر (Scene File). للمزيد من التفاصيل:
-> ```bash
-> git diff Assets/Parthenon/Demo.unity
-> ```
+### 6. Demo.unity — إصلاح وحدات البلاستر 📐
+
+جميع أبعاد `BucketBuilder` حُولت من متر إلى سم:
+- `bottomRadius: 0.18 → 18`
+- `topRadius: 0.22 → 22`
+- `bucketHeight: 0.4 → 40`
+- `wallThickness: 0.015 → 1.5`
+- `maxPaintHeight: 0.3 → 30`
 
 ---
 
-### 4. ProjectSettings/Packages/com.unity.probuilder/Settings.json ⚙️
+## ⚠️ مخاطر معروفة | Known Risks
 
-**الحجم:** 35+ سطر جديد  
-**الحالة:** ✅ تحديثات إعدادات ProBuilder
-
----
-
-### 5. Assets/Scripts/FluidSPHSystem.cs 💧
-
-**الحجم:** 4+ سطور جديدة  
-**الحالة:** ⚡ تعديل بسيط
-
----
-
-### 6. Assets/New Render Texture.renderTexture 🖼️
-
-**التغييرات:** 2 إضافة، 1 حذف  
-**الحالة:** ✏️ تحديث خصائص الملمس
+1. **تقريب برنولي مفعل افتراضيًا** — سرعة التدفّق تتأثر بحركة الدلو. أوقفه إن شوه الرسم.
+2. **انبعاث مزدوج** — `EmitParticles()` + `PaintEmitter.Emit()` يعملان معًا (~1.6× جسيمات).
+3. **6 أشرطة تمرير + 3 MonoBehaviours** تحتاج توصيل في Unity Inspector قبل التشغيل.
 
 ---
 
 ## تعليمات مفيدة | Useful Commands
 
-### عرض جميع التعديلات بالتفصيل:
 ```bash
+# عرض جميع التعديلات
 git diff
-```
 
-### عرض ملف محدد:
-```bash
-git diff Assets/Scripts/BucketBuilder.cs
-```
+# عرض ملف محدد
+git diff Assets/Scripts/SPHFluidSolver.cs
 
-### إرجاع ملف إلى آخر نسخة مرتكبة:
-```bash
-git checkout -- <path-to-file>
-```
-
-### عرض حالة المستودع:
-```bash
+# حالة المستودع
 git status
 ```
 
 ---
 
-## ملاحظات مهمة | Important Notes
-
-⚠️ **تحذيرات Line Endings:**
-- `Assets/Scripts/BucketBuilder.cs`
-- `Assets/Scripts/FluidSPHSystem.cs`
-- `ProjectSettings/Packages/com.unity.probuilder/Settings.json`
-
-> سيتم تحويل `LF` إلى `CRLF` في Commit التالي
-
----
-
-**تم إنشاء هذا الملف تلقائياً**  
-*Generated: 2026-06-14*
+*Generated: 2026-06-27*
