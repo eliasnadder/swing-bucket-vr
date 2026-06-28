@@ -21,29 +21,26 @@ I added a new modular SPH pipeline:
 - `SPHFluidSolver.cs`
 - `CustomBoundary.cs`
 - `PaintCanvas.cs`
-- `BucketPendulum.cs`
+- `SwingingCoupledSpringPendulum.cs` (active pendulum with spring-damper rope, RK4 integration)
+- `BucketBuilder.cs` (procedural bucket mesh, `[RequireComponent]` of the active pendulum)
 - `PaintEmitter.cs`
 - `SPHRenderer.cs`
 - `SimulationController.cs`
-
-I also updated:
-
-- `CanvasExporter.cs` so it can export the new `PaintCanvas`
-- `FluidSPHSystem.cs` only for compatibility with the old scene
-- `BucketBuilder.cs` and older scripts are still present, but they are part of the previous system
+- `SimulationUIManager.cs` (20 slider bindings)
+- `CanvasExporter.cs` (PNG + JSON export)
 
 ## How the simulation works
 
 ### 1. Bucket motion
 
-`BucketPendulum` updates the bucket position using a pendulum equation:
+`SwingingCoupledSpringPendulum` updates the bucket position using a coupled spring-pendulum with RK4 integration:
 
-`angularAcceleration = -(gravity / ropeLength) * sin(angle) - damping * angularVelocity`
+`angularAcceleration = -(gravity / ropeLength) * sin(angle) - damping * angularVelocity + spring_force + wind`
 
-Then:
+Then (RK4 integration):
 
-- `angularVelocity += angularAcceleration * dt`
-- `angle += angularVelocity * dt`
+- The solver takes 4 intermediate slope evaluations per timestep
+- `angularVelocity` and `angle` are updated with the weighted average
 
 This gives the swinging motion without Rigidbody.
 
@@ -115,25 +112,27 @@ It is still a simplified fluid:
 
 This is enough to show realistic behavior for a student project, but it is not a full production fluid solver.
 
-## Old system vs new system
+## Active system vs legacy system
 
-### Old system
+### Active system (wired in Demo.unity)
 
-- `FluidSPHSystem`
-- `PaintSurfaceCanvas`
-- `SwingingCoupledSpringPendulum`
+- `SPHFluidSolver` — SPH fluid + Bernoulli flow + surface tension + coalescence
+- `PaintCanvas` — texture-based canvas painting + cohesion/adhesion per-surface
+- `SwingingCoupledSpringPendulum` — spring-damper rope, RK4 integration, wind
+- `BucketBuilder` — procedural bucket mesh (`[RequireComponent]` of the pendulum)
+- `PaintEmitter` — spawns SPH particles from bucket hole
+- `CustomBoundary` — canvas collision detection
+- `SPHRenderer` — particle mesh rendering
+- `SimulationController` — orchestration + multi-bucket + multi-color
+- `SimulationUIManager` — 20 slider bindings
 
-### New system
+### Legacy (still present, NOT wired in active scene)
 
-- `SPHFluidSolver`
-- `PaintCanvas`
-- `BucketPendulum`
-- `PaintEmitter`
-- `CustomBoundary`
-- `SPHRenderer`
-- `SimulationController`
+- `FluidSPHSystem` — original monolithic SPH fluid (pre-modular)
+- `PaintSurfaceCanvas` — old canvas (references FluidSPHSystem.Instance)
+- `BucketPendulum` — orphaned simple pendulum (not referenced by any scene object)
 
-The old scripts still exist so the project does not break immediately, but the new system is the one you should use going forward.
+The legacy scripts still exist so the project does not break, but the active system is the one used in Demo.unity.
 
 ## How to make it look more like real paint
 

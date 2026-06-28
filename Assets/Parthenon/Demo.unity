@@ -2407,6 +2407,9 @@ MonoBehaviour:
   initialTheta: 45
   initialOmega: 0
   initialPhi: 0
+  PivotX: 0
+  PivotY: 0
+  maxSwings: 0
   autoSyncFromScenePosition: 0
 --- !u!120 &268129423
 LineRenderer:
@@ -2596,6 +2599,9 @@ MonoBehaviour:
   orificeDiameter: 2
   paintDensity: 1200
   currentPaintColor: {r: 1, g: 0, b: 0, a: 1}
+  useBernoulliApproximation: 1
+  surfaceTensionCoeff: 0
+  surfaceTensionMinDist: 0
   temperature: 25
   humidity: 0.5
   windSpeed: 0
@@ -2604,6 +2610,9 @@ MonoBehaviour:
   drawGizmos: 0
   particlesPerVolumeUnit: 50000
   maxSpawnPerFrame: 20
+  enableCoalescence: 0
+  coalescenceRadius: 1
+  maxCoalesceRelSpeed: 5
   pendulum: {fileID: 268129422}
   bucketBuilder: {fileID: 268129424}
 --- !u!1 &289119969
@@ -6627,6 +6636,8 @@ MonoBehaviour:
   defaultSplatRadiusWorld: 30
   viscosityRadiusScale: 0.15
   contactThickness: 5
+  cohesionStrength: 0.4
+  adhesionStrength: 0.6
 --- !u!1 &932867577
 GameObject:
   m_ObjectHideFlags: 0
@@ -11039,6 +11050,7 @@ MonoBehaviour:
   canvasTarget: {fileID: 0}
   modernCanvasTarget: {fileID: 931284153}
   exportButton: {fileID: 382752035}
+  exportJsonButton: {fileID: 0}
 --- !u!4 &1603322436
 Transform:
   m_ObjectHideFlags: 0
@@ -11084,12 +11096,20 @@ MonoBehaviour:
   initialAngleValueText: {fileID: 1694421621}
   initialOmegaSlider: {fileID: 367163767}
   initialOmegaValueText: {fileID: 49209371}
+  numberOfSwingsSlider: {fileID: 0}
+  numberOfSwingsValueText: {fileID: 0}
+  xpivotSlider: {fileID: 0}
+  xpivotValueText: {fileID: 0}
+  ypivotSlider: {fileID: 0}
+  ypivotValueText: {fileID: 0}
   orificeSlider: {fileID: 851532368}
   orificeValueText: {fileID: 18975282}
   viscositySlider: {fileID: 368557776}
   viscosityValueText: {fileID: 1414527617}
   paintAmountSlider: {fileID: 1232971047}
   paintAmountValueText: {fileID: 1966483018}
+  bucketRadiusSlider: {fileID: 0}
+  bucketRadiusValueText: {fileID: 0}
   windSpeedSlider: {fileID: 1256838926}
   windSpeedValueText: {fileID: 74695892}
   temperatureSlider: {fileID: 1448806412}
@@ -11098,6 +11118,10 @@ MonoBehaviour:
   humidityValueText: {fileID: 1501531480}
   tiltSlider: {fileID: 1815545498}
   tiltValueText: {fileID: 1132600405}
+  canvasWidthSlider: {fileID: 0}
+  canvasWidthValueText: {fileID: 0}
+  canvasHeightSlider: {fileID: 0}
+  canvasHeightValueText: {fileID: 0}
   colorDropdown: {fileID: 1557551735}
   surfaceTypeDropdown: {fileID: 1778669906}
   restartButton: {fileID: 220694250}
@@ -11114,6 +11138,12 @@ MonoBehaviour:
   temperatureRange: {x: -10, y: 60}
   humidityRange: {x: 0, y: 100}
   tiltRange: {x: 0, y: 90}
+  pivotXRange: {x: -75, y: 75}
+  pivotYRange: {x: 0, y: 200}
+  bucketRadiusRange: {x: 5, y: 50}
+  numberOfSwingsRange: {x: 0, y: 50}
+  canvasWidthRange: {x: 50, y: 500}
+  canvasHeightRange: {x: 50, y: 500}
 --- !u!114 &1603322438
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11172,6 +11202,9 @@ MonoBehaviour:
   paintCanvas: {fileID: 931284153}
   sphRenderer: {fileID: 121860750}
   autoRun: 1
+  extraPaintEmitters: []
+  extraEmitterColors: []
+  singleEmitterColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!1 &1606364573
 GameObject:
   m_ObjectHideFlags: 0

@@ -210,15 +210,15 @@ public class SimulationUIManager : MonoBehaviour
         }
         if (bucketBuilder != null)
         {
-            // bottomRadius داخلياً بالمتر، يحول إلى سم للعرض في الـ Slider
-            SetSlider(bucketRadiusSlider, bucketBuilder.bottomRadius * 100f);
+            // bottomRadius is already stored in cm (post-cm-migration) → slider displays cm directly.
+            SetSlider(bucketRadiusSlider, bucketBuilder.bottomRadius);
         }
         if (canvasEngine != null)
         {
             SetSlider(tiltSlider, canvasEngine.tiltAngle);
-            // worldSize داخلياً بالمتر، يحول إلى سم للعرض في الـ Slider
-            SetSlider(canvasWidthSlider, canvasEngine.worldSize.x * 100f);
-            SetSlider(canvasHeightSlider, canvasEngine.worldSize.y * 100f);
+            // worldSize is already stored in cm (post-cm-migration) → slider displays cm directly.
+            SetSlider(canvasWidthSlider, canvasEngine.worldSize.x);
+            SetSlider(canvasHeightSlider, canvasEngine.worldSize.y);
         }
     }
 
@@ -254,7 +254,7 @@ public class SimulationUIManager : MonoBehaviour
         Bind(humiditySlider, v => { if (fluidEngine) fluidEngine.humidity = v / 100f; });
 
         // Bucket
-        Bind(bucketRadiusSlider, v => { if (bucketBuilder) bucketBuilder.bottomRadius = v / 100f; });
+        Bind(bucketRadiusSlider, v => { if (bucketBuilder) bucketBuilder.bottomRadius = v; });
 
         // Canvas
         Bind(tiltSlider, v => { if (canvasEngine) canvasEngine.tiltAngle = v; });
@@ -262,14 +262,14 @@ public class SimulationUIManager : MonoBehaviour
         {
             if (!canvasEngine) return;
             Vector2 s = canvasEngine.worldSize;
-            s.x = v / 100f;
+            s.x = v;
             canvasEngine.worldSize = s;
         });
         Bind(canvasHeightSlider, v =>
         {
             if (!canvasEngine) return;
             Vector2 s = canvasEngine.worldSize;
-            s.y = v / 100f;
+            s.y = v;
             canvasEngine.worldSize = s;
         });
 
@@ -308,7 +308,7 @@ public class SimulationUIManager : MonoBehaviour
         SetLabel(gravityValueText, gravitySlider, v => $"{v:F2} m/s²");
         SetLabel(initialAngleValueText, initialAngleSlider, v => $"{v:F0}°");
         SetLabel(initialOmegaValueText, initialOmegaSlider, v => $"{v:F2} rad/s");
-        SetLabel(orificeValueText, orificeSlider, v => $"{v * 1000f:F1} mm");
+        SetLabel(orificeValueText, orificeSlider, v => $"{v * 10f:F1} mm");
         SetLabel(viscosityValueText, viscositySlider, v => $"{v:F3}");
         SetLabel(paintAmountValueText, paintAmountSlider, v => $"{v:F1} L");
         SetLabel(windSpeedValueText, windSpeedSlider, v => $"{v:F1} m/s");

@@ -12,16 +12,26 @@ Naive SPH checks every particle against every other particle, which becomes too 
 
 ## Scripts
 
+### Active (wired in Demo.unity)
+
 - `SPHParticle.cs`: particle data structure
 - `SPHKernel.cs`: Poly6, Spiky gradient, and viscosity kernels
 - `SpatialHashGrid.cs`: neighbor lookup grid
-- `SPHFluidSolver.cs`: density, pressure, force, and integration
+- `SPHFluidSolver.cs`: density, pressure, force, Bernoulli flow, surface tension, coalescence
 - `CustomBoundary.cs`: manual floor/canvas collision and box bounds
-- `PaintCanvas.cs`: Texture2D paint rendering and batching
-- `BucketPendulum.cs`: custom swinging bucket motion
+- `PaintCanvas.cs`: Texture2D paint rendering, cohesion/adhesion per-surface
+- `SwingingCoupledSpringPendulum.cs`: coupled spring-pendulum with RK4 integration, wind
+- `BucketBuilder.cs`: procedural bucket mesh (`[RequireComponent]` of pendulum)
 - `PaintEmitter.cs`: emits paint particles from the bucket hole
 - `SPHRenderer.cs`: renders particles as pooled spheres
-- `SimulationController.cs`: connects and steps everything
+- `SimulationController.cs`: connects and steps everything, multi-bucket/multi-color
+- `SimulationUIManager.cs`: 20 slider bindings (14 original + 6 new)
+
+### Legacy (present but NOT wired in active scene)
+
+- `BucketPendulum.cs`: orphaned simple pendulum (not referenced by any scene object)
+- `FluidSPHSystem.cs`: original monolithic SPH fluid (pre-modular)
+- `PaintSurfaceCanvas.cs`: old canvas (references FluidSPHSystem.Instance)
 
 ## Formulas used
 
