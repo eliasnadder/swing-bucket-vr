@@ -229,7 +229,7 @@ public class PanelStyleEnhancer : MonoBehaviour
         tmp.fontSize = 18f;
         tmp.color = AccentRed;
         tmp.fontStyle = FontStyles.Bold;
-        tmp.alignment = TextAlignmentOptions.Left | TextAlignmentOptions.Middle;
+        tmp.alignment = TextAlignmentOptions.Left | TextAlignmentOptions.Center;
         tmp.raycastTarget = false;
 
         go.SetActive(true);
