@@ -90,6 +90,7 @@ public class SimulationUIManager : MonoBehaviour
     // ============== Buttons ==============
     [Header("Buttons")]
     public Button restartButton;
+public Button runSimulationButton;
 
     // ============== Slider Ranges (Section: bug-fix) ==============
     // ─────────────────────────────────────────────────────────────
@@ -279,6 +280,7 @@ public class SimulationUIManager : MonoBehaviour
 
         // Buttons
         if (restartButton != null) restartButton.onClick.AddListener(RestartScene);
+if (runSimulationButton != null) runSimulationButton.onClick.AddListener(ToggleSimulation);
     }
 
     void Bind(Slider s, System.Action<float> action)
@@ -329,7 +331,14 @@ public class SimulationUIManager : MonoBehaviour
             label.text = format(slider.value);
     }
 
-    void RestartScene()
+    void ToggleSimulation()
+{
+    var ctrl = FindObjectOfType<SimulationController>();
+    if (ctrl != null)
+        ctrl.autoRun = !ctrl.autoRun;
+}
+
+void RestartScene()
     {
         UnityEngine.SceneManagement.SceneManager.LoadScene(
             UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
