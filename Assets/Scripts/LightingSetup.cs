@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.Rendering;
-// ponytail: shadow tuning — directional gets soft HQ, spot gets soft MB
 
 public class LightingSetup : MonoBehaviour
 {
@@ -69,7 +68,6 @@ public class LightingSetup : MonoBehaviour
 		probe.refreshMode = ReflectionProbeRefreshMode.OnAwake;
 		probe.resolution = 256;
 		probe.size = size;
-		// intensityMultiplier removed in Unity 6 — no-op, default 1.0 is correct
 		probe.backgroundColor = new Color(0.19f, 0.30f, 0.47f, 1f);
 		probe.hdr = true;
 	}

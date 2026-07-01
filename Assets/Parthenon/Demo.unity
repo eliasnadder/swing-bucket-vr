@@ -10354,6 +10354,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1184447427}
+  - component: {fileID: 1184447428}
   m_Layer: 0
   m_Name: Lighting
   m_TagString: Untagged
@@ -10376,6 +10377,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1184447428
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1184447426}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 313051769fd18d3428c853d1931e697a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LightingSetup
+  spawnLights: 1
+  spawnProbes: 1
 --- !u!1 &1193501493
 GameObject:
   m_ObjectHideFlags: 0
@@ -14277,6 +14292,7 @@ MonoBehaviour:
   colorDropdown: {fileID: 1557551735}
   surfaceTypeDropdown: {fileID: 1778669906}
   restartButton: {fileID: 220694250}
+  runSimulationButton: {fileID: 0}
   lengthRange: {x: 0.1, y: 10}
   elasticityRange: {x: 0, y: 2000}
   ropeDampingRange: {x: 0, y: 50}
