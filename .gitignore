@@ -43,6 +43,10 @@
 # Visual Studio cache directory
 .vs/
 .codegraph/
+.claude/
+.codex/
+.remember/
+.plastic
 
 # Gradle cache directory
 .gradle/
