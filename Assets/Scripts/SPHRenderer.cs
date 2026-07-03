@@ -17,11 +17,19 @@ public class SPHRenderer : MonoBehaviour
     public bool showAirStream = true;
     public float streamRadiusMultiplier = 1f;
     public float dropletRadiusMultiplier = 1f;
-    public int maxStreamPoints = 48;
+    public int maxStreamPoints = 32;
     public Material streamMaterial;
+
+    [Header("Stream Smoothing")]
+    [Tooltip("نقاط Catmull-Rom بين كل زوج من الركائز — كلما زاد زاد النعومة")]
+    public int streamSubdivisions = 6;
+    [Range(0f, 1f), Tooltip("0 = لا تنعيم زماني (يتبع الجسيمات فوراً)، 1 = تجميد. 0.45 يقتل التذبذب بدون أن يتأخر كثيراً")]
+    public float streamSmoothing = 0.45f;
 
     private readonly List<ParticleVisual> visuals = new List<ParticleVisual>();
     private readonly List<Vector3> streamPoints = new List<Vector3>(64);
+    private readonly List<Vector3> targetPath = new List<Vector3>(128);
+    private readonly List<Vector3> smoothedPath = new List<Vector3>(128);
     private Mesh particleMesh;
     private Material runtimeMaterial;
     private Material runtimeStreamMaterial;
@@ -107,24 +115,18 @@ public class SPHRenderer : MonoBehaviour
         float holeRadius = GetHoleRadius();
         float maxY = holePosition.y + holeRadius * 2f;
 
+        // ── gather anchors: the hole, then every in-flight particle below it ──
         streamPoints.Clear();
         streamPoints.Add(holePosition);
-
         for (int i = 0; i < activeCount; i++)
         {
             SPHParticle particle = solver.GetParticle(i);
-            if (particle.position.y > maxY)
-                continue;
-
+            if (particle.position.y > maxY) continue;
             streamPoints.Add(particle.position);
         }
+        if (streamPoints.Count < 2) { SetStreamVisible(false); return; }
 
-        if (streamPoints.Count < 2)
-        {
-            SetStreamVisible(false);
-            return;
-        }
-
+        // top → bottom so the alpha gradient reads vertically (top = at the bucket)
         streamPoints.Sort((a, b) => b.y.CompareTo(a.y));
         int pointLimit = Mathf.Max(2, maxStreamPoints);
         if (streamPoints.Count > pointLimit)
@@ -137,27 +139,95 @@ public class SPHRenderer : MonoBehaviour
             streamPoints.RemoveRange(pointLimit, streamPoints.Count - pointLimit);
         }
 
+        // ── smooth: Catmull-Rom through the anchors, then a light temporal lerp ──
+        BuildSmoothPath(streamPoints, targetPath, Mathf.Max(1, streamSubdivisions));
+        TemporalSmooth(targetPath, streamSmoothing);
+
         float streamDiameter = holeRadius * 2f * Mathf.Max(0.01f, streamRadiusMultiplier);
-        Color streamColor = solver.GetParticle(0).color;
-        streamColor.a = 0.95f;
+        Color streamColor = GetStreamColor();
+
         streamRenderer.startWidth = streamDiameter;
-        streamRenderer.endWidth = streamDiameter * 0.65f;
-        streamRenderer.startColor = streamColor;
-        streamRenderer.endColor = new Color(streamColor.r, streamColor.g, streamColor.b, 0.65f);
-        streamRenderer.positionCount = streamPoints.Count;
-        streamRenderer.SetPositions(streamPoints.ToArray());
+        streamRenderer.endWidth   = streamDiameter * 0.7f;
+
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new[]
+            {
+                new GradientColorKey(streamColor, 0f), // top — full bucket color
+                new GradientColorKey(streamColor, 1f)  // bottom — same RGB, lower alpha (below)
+            },
+            new[]
+            {
+                new GradientAlphaKey(0.95f, 0f),
+                new GradientAlphaKey(0.55f, 1f)
+            });
+        streamRenderer.colorGradient = gradient;
+
+        streamRenderer.positionCount = smoothedPath.Count;
+        streamRenderer.SetPositions(smoothedPath.ToArray());
         SetStreamVisible(true);
+    }
+
+    private static Vector3 CatmullRom(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+    {
+        float t2 = t * t;
+        float t3 = t2 * t;
+        return 0.5f * (
+            2f * p1 +
+            (-p0 + p2) * t +
+            (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 +
+            (-p0 + 3f * p1 - 3f * p2 + p3) * t3);
+    }
+
+    // Builds a C0-continuous Catmull-Rom spline through `anchors` (open ends clamp to the endpoints).
+    private void BuildSmoothPath(List<Vector3> anchors, List<Vector3> output, int subdivs)
+    {
+        output.Clear();
+        if (anchors.Count < 2) return;
+        output.Add(anchors[0]);
+        if (anchors.Count == 2) { output.Add(anchors[1]); return; }
+        for (int i = 0; i < anchors.Count - 1; i++)
+        {
+            Vector3 p0 = anchors[Mathf.Max(0, i - 1)];
+            Vector3 p1 = anchors[i];
+            Vector3 p2 = anchors[i + 1];
+            Vector3 p3 = anchors[Mathf.Min(anchors.Count - 1, i + 2)];
+            for (int s = 1; s <= subdivs; s++)
+                output.Add(CatmullRom(p0, p1, p2, p3, (float)s / subdivs));
+        }
+    }
+
+    private void TemporalSmooth(List<Vector3> target, float lerpFactor)
+    {
+        if (smoothedPath.Count != target.Count)
+        {
+            smoothedPath.Clear();
+            smoothedPath.AddRange(target); // size changed (particle count changed) — snap, don't smear
+            return;
+        }
+        for (int i = 0; i < target.Count; i++)
+            smoothedPath[i] = Vector3.Lerp(smoothedPath[i], target[i], lerpFactor);
     }
 
     private float GetHoleRadius()
     {
+        // ponytail: single source of truth — solver first, paintEmitter as a fallback only
+        if (solver != null)
+            return solver.OrificeRadius;
+
         if (paintEmitter != null)
             return Mathf.Max(0.001f, paintEmitter.holeRadius);
 
-        if (solver != null)
-            return Mathf.Max(0.001f, solver.orificeDiameter * 0.5f);
-
         return Mathf.Max(0.001f, particleSize * 0.5f);
+    }
+
+    private Color GetStreamColor()
+    {
+        if (solver != null)
+            return solver.currentPaintColor;
+        if (paintEmitter != null)
+            return paintEmitter.color;
+        return Color.red;
     }
 
     private void EnsureStreamRenderer()
@@ -171,7 +241,7 @@ public class SPHRenderer : MonoBehaviour
         streamRenderer = go.AddComponent<LineRenderer>();
         streamRenderer.sharedMaterial = runtimeStreamMaterial;
         streamRenderer.useWorldSpace = true;
-        streamRenderer.numCapVertices = 8;
+        streamRenderer.numCapVertices = 12;
         streamRenderer.numCornerVertices = 4;
         streamRenderer.alignment = LineAlignment.View;
         streamRenderer.textureMode = LineTextureMode.Stretch;
