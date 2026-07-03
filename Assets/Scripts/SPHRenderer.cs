@@ -268,6 +268,25 @@ public class SPHRenderer : MonoBehaviour
         return Color.red;
     }
 
+    [ContextMenu("Verify SOT (color + radius)")]
+    private void VerifySOT()
+    {
+        if (solver == null) { Debug.LogError("[VerifySOT] solver is null — cannot verify SOTs."); return; }
+
+        float r = GetHoleRadius();
+        bool radiusOk = Mathf.Approximately(r, solver.OrificeRadius);
+        Debug.Log($"[VerifySOT] radius: renderer={r:F4} solver={solver.OrificeRadius:F4} match={radiusOk}");
+
+        Color cc = GetStreamColor();
+        bool colorOk = cc == solver.currentPaintColor;
+        Debug.Log($"[VerifySOT] color: renderer=({cc.r:F2},{cc.g:F2},{cc.b:F2}) solver=({solver.currentPaintColor.r:F2},{solver.currentPaintColor.g:F2},{solver.currentPaintColor.b:F2}) match={colorOk}");
+
+        if (radiusOk && colorOk)
+            Debug.Log("[VerifySOT] OK — single source of truth consistent.");
+        else
+            Debug.LogWarning("[VerifySOT] MISMATCH — renderer is not reading the solver SOTs.");
+    }
+
     private void EnsureStreamRenderer()
     {
         if (streamRenderer != null)
