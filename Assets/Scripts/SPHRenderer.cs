@@ -35,11 +35,32 @@ public class SPHRenderer : MonoBehaviour
     private Material runtimeStreamMaterial;
     private LineRenderer streamRenderer;
 
+    [Header("Canvas Splash (transient, cosmetic)")]
+    public int   splashPoolSize       = 48;
+    public float splashDropletLifetime = 0.25f;
+    public float splashInitialSpeed    = 20f;   // world units/s — cosmetic
+    public float splashGravity         = 300f;  // cosmetic, snappier than world g
+    private readonly List<SplashDroplet> splashPool = new List<SplashDroplet>();
+    private int splashCursor;
+
     private class ParticleVisual
     {
         public GameObject gameObject;
         public Renderer renderer;
         public MaterialPropertyBlock block;
+    }
+
+    private class SplashDroplet
+    {
+        public GameObject gameObject;
+        public Renderer renderer;
+        public MaterialPropertyBlock block;
+        public Color    color;
+        public Vector3  velocity;
+        public float    baseRadius;
+        public float    age;
+        public float    lifetime;
+        public bool     active;
     }
 
     private void Awake()
@@ -59,11 +80,28 @@ public class SPHRenderer : MonoBehaviour
         runtimeStreamMaterial = streamMaterial != null ? streamMaterial : CreateDefaultMaterial();
         EnsurePool(initialPoolSize);
         EnsureStreamRenderer();
+        EnsureSplashPool(Mathf.Max(1, splashPoolSize));
+        SubscribeSplash();
+    }
+
+    private void OnDestroy()
+    {
+        CustomBoundary boundary = FindAnyObjectByType<CustomBoundary>();
+        if (boundary != null)
+            boundary.OnCanvasImpact -= SpawnSplash;
+    }
+
+    private void SubscribeSplash()
+    {
+        CustomBoundary boundary = FindAnyObjectByType<CustomBoundary>();
+        if (boundary != null)
+            boundary.OnCanvasImpact += SpawnSplash;
     }
 
     private void LateUpdate()
     {
         RenderParticles();
+        UpdateSplash();
     }
 
     public void RenderParticles()
@@ -349,5 +387,107 @@ public class SPHRenderer : MonoBehaviour
         mesh.SetTriangles(triangles, 0);
         mesh.RecalculateBounds();
         return mesh;
+    }
+
+    // ── Canvas splash: a short ring of cosmetic droplets spawned on impact, decoupled
+    //    from the persistent PaintCanvas texture-splat. Fades by shrinking (no transparency
+    //    needed — reuses the existing opaque particle material). Recycled via a pool.
+    private void EnsureSplashPool(int count)
+    {
+        while (splashPool.Count < count)
+        {
+            GameObject go = new GameObject($"SplashDroplet_{splashPool.Count}");
+            go.transform.SetParent(transform, false);
+            MeshFilter mf = go.AddComponent<MeshFilter>();
+            mf.sharedMesh = particleMesh; // reuse the same sphere mesh as SPH droplets
+            Renderer r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = runtimeMaterial;
+            go.SetActive(false);
+            splashPool.Add(new SplashDroplet
+            {
+                gameObject = go,
+                renderer   = r,
+                block      = new MaterialPropertyBlock(),
+                active     = false
+            });
+        }
+    }
+
+    public void SpawnSplash(Vector3 hitPoint, Color color, Vector3 impactVelocity)
+    {
+        if (!showAirStream) return; // tie the cosmetic splash to the master "air visuals" toggle
+
+        // count scales with downward impact speed (reuses PaintCanvas's 3 m/s eye-of-the-storm threshold)
+        int count = Mathf.Clamp(6 + Mathf.FloorToInt(Mathf.Abs(impactVelocity.y) / 3f), 6, 16);
+        float baseRadius = GetHoleRadius() * 0.4f; // ponytail: ~0.4× the stream radius for splash droplets
+        Color c = color;
+
+        for (int i = 0; i < count; i++)
+        {
+            SplashDroplet d = AcquireSplashDroplet();
+            if (d == null) break; // pool saturated this frame — spawn fewer, fine
+
+            // ring in the canvas plane (XZ for the default horizontal canvas) + a slight upward bounce
+            float angle = (i / (float)count) * Mathf.PI * 2f + Random.Range(-0.2f, 0.2f);
+            Vector3 ringDir = new Vector3(Mathf.Cos(angle), 0.3f, Mathf.Sin(angle));
+            Vector3 vel = ringDir * splashInitialSpeed + Vector3.up * (splashInitialSpeed * 0.4f);
+
+            d.color      = c;
+            d.velocity   = vel;
+            d.baseRadius = baseRadius;
+            d.age        = 0f;
+            d.lifetime   = splashDropletLifetime * Random.Range(0.8f, 1.2f);
+            d.active     = true;
+
+            d.gameObject.transform.position = hitPoint;
+            d.gameObject.transform.localScale = Vector3.one * (baseRadius * 2f);
+            d.block.Clear();
+            d.block.SetColor("_BaseColor", c);
+            d.block.SetColor("_Color", c); // Standard vs URP shader name
+            d.renderer.SetPropertyBlock(d.block);
+            d.gameObject.SetActive(true);
+        }
+    }
+
+    private SplashDroplet AcquireSplashDroplet()
+    {
+        for (int i = 0; i < splashPool.Count; i++)
+        {
+            int idx = (splashCursor + i) % splashPool.Count;
+            if (!splashPool[idx].active)
+            {
+                splashCursor = idx + 1;
+                return splashPool[idx];
+            }
+        }
+        return null; // all active — caller skips (ring is just smaller this frame)
+    }
+
+    private void UpdateSplash()
+    {
+        float dt = Time.deltaTime;
+        if (dt <= 0f) return;
+        for (int i = 0; i < splashPool.Count; i++)
+        {
+            SplashDroplet d = splashPool[i];
+            if (!d.active) continue;
+
+            d.age += dt;
+            if (d.age >= d.lifetime)
+            {
+                d.active = false;
+                d.gameObject.SetActive(false);
+                continue;
+            }
+
+            d.velocity.y -= splashGravity * dt;
+            Vector3 pos = d.gameObject.transform.position + d.velocity * dt;
+            d.gameObject.transform.position = pos;
+
+            // fade by shrinking (opaque material — no blend mode required)
+            float t = d.age / d.lifetime;
+            float scale = d.baseRadius * 2f * (1f - t);
+            d.gameObject.transform.localScale = Vector3.one * Mathf.Max(0f, scale);
+        }
     }
 }
