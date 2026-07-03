@@ -6,6 +6,9 @@ public class CustomBoundary : MonoBehaviour
     public SPHFluidSolver solver;
     public PaintCanvas paintCanvas;
 
+    [Tooltip("يُستدعى فور اصطدام جسيم بالـ Canvas (نقطة الاصطدام، لون الجسيم، سرعة الجسيم). مشتركون اختياريون مثل SPHRenderer.SpawnSplash. لا شيء بشكل افتراضي.")]
+    public System.Action<Vector3, Color, Vector3> OnCanvasImpact;
+
     [Header("Canvas Contact")]
     public float bounceDamping = 0.15f;
     public float surfaceFriction = 0.9f;
@@ -64,11 +67,14 @@ public class CustomBoundary : MonoBehaviour
                 // تحقق من أن النقطة داخل حدود اللوحة (XZ فقط)
                 if (paintCanvas.TryWorldToPixel(hitPoint, out _, out _))
                 {
-                    // radiusWorld = orificeDiameter مباشرة
-                    // مطابق index.html: size = holeSize * random(0.5..1)
-                    // نمرر قيمة عشوائية بنفس النطاق
-                    float orificeD    = solver != null ? solver.orificeDiameter : 0.3f;
-                    float radiusWorld = orificeD * (0.5f + Random.value * 0.5f);
+                    // radiusWorld: إمّا قيمة ثابتة من splatRadiusWorld، أو orificeDiameter × splatRadiusMultiplier.
+                    // ponytail: the multiplier field already existed (default 50) but was dead code;
+                    //   wiring it lets orificeDiameter drop to a proportional 0.05 while splats keep size
+                    //   (splatRadiusMultiplier=40 ⇒ 0.05×40 = 2 = the old orificeDiameter value).
+                    float orificeD = solver != null ? solver.orificeDiameter : 0.3f;
+                    float radiusWorld = splatRadiusWorld > 0f
+                        ? splatRadiusWorld
+                        : orificeD * splatRadiusMultiplier * (0.5f + Random.value * 0.5f);
 
                     paintCanvas.QueueSplat(
                         hitPoint,
@@ -76,6 +82,9 @@ public class CustomBoundary : MonoBehaviour
                         radiusWorld,
                         solver != null ? solver.viscosity : 0f,
                         particle.velocity);
+
+                    // splash بصري momentarily — منفصل عن البقعة الدائمة أعلاه (لا يمسّ pipeline الـ texture)
+                    OnCanvasImpact?.Invoke(hitPoint, particle.color, particle.velocity);
 
                     painted = true;
                     particle.position.y = canvasY + collisionPadding;

@@ -17720,7 +17720,7 @@ MonoBehaviour:
   killParticleAfterPaint: 1
   collisionPadding: 0.2
   splatRadiusWorld: 0
-  splatRadiusMultiplier: 10
+  splatRadiusMultiplier: 40
   useBoxBounds: 0
   boxCenter: {x: 0, y: 0, z: 0}
   boxSize: {x: 10, y: 10, z: 10}
