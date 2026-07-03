@@ -5,6 +5,7 @@ public class SPHRenderer : MonoBehaviour
 {
     [Header("References")]
     public SPHFluidSolver solver;
+    public PaintEmitter paintEmitter;
 
     [Header("Visuals")]
     public int initialPoolSize = 512;
@@ -12,9 +13,19 @@ public class SPHRenderer : MonoBehaviour
     public Material particleMaterial;
     public bool createMaterialIfMissing = true;
 
+    [Header("Air Stream Visuals")]
+    public bool showAirStream = true;
+    public float streamRadiusMultiplier = 1f;
+    public float dropletRadiusMultiplier = 1f;
+    public int maxStreamPoints = 48;
+    public Material streamMaterial;
+
     private readonly List<ParticleVisual> visuals = new List<ParticleVisual>();
+    private readonly List<Vector3> streamPoints = new List<Vector3>(64);
     private Mesh particleMesh;
     private Material runtimeMaterial;
+    private Material runtimeStreamMaterial;
+    private LineRenderer streamRenderer;
 
     private class ParticleVisual
     {
@@ -27,6 +38,8 @@ public class SPHRenderer : MonoBehaviour
     {
         if (solver == null)
             solver = FindAnyObjectByType<SPHFluidSolver>();
+        if (paintEmitter == null)
+            paintEmitter = FindAnyObjectByType<PaintEmitter>();
 
         if (particleMesh == null)
             particleMesh = CreateSphereMesh(8, 12);
@@ -35,7 +48,9 @@ public class SPHRenderer : MonoBehaviour
             particleMaterial = CreateDefaultMaterial();
 
         runtimeMaterial = particleMaterial;
+        runtimeStreamMaterial = streamMaterial != null ? streamMaterial : CreateDefaultMaterial();
         EnsurePool(initialPoolSize);
+        EnsureStreamRenderer();
     }
 
     private void LateUpdate()
@@ -51,6 +66,9 @@ public class SPHRenderer : MonoBehaviour
         EnsurePool(solver.ParticleCount);
 
         int activeCount = solver.ParticleCount;
+        float dropletDiameter = GetHoleRadius() * 2f * Mathf.Max(0.01f, dropletRadiusMultiplier);
+        float visualDiameter = Mathf.Max(particleSize, dropletDiameter);
+
         for (int i = 0; i < activeCount; i++)
         {
             SPHParticle particle = solver.GetParticle(i);
@@ -60,7 +78,7 @@ public class SPHRenderer : MonoBehaviour
                 visual.gameObject.SetActive(true);
 
             visual.gameObject.transform.position = particle.position;
-            visual.gameObject.transform.localScale = Vector3.one * particleSize;
+            visual.gameObject.transform.localScale = Vector3.one * visualDiameter;
 
             visual.block.Clear();
             visual.block.SetColor("_BaseColor", particle.color);
@@ -73,6 +91,99 @@ public class SPHRenderer : MonoBehaviour
             if (visuals[i].gameObject.activeSelf)
                 visuals[i].gameObject.SetActive(false);
         }
+
+        RenderAirStream(activeCount);
+    }
+
+    private void RenderAirStream(int activeCount)
+    {
+        if (!showAirStream || streamRenderer == null || paintEmitter == null || activeCount <= 0)
+        {
+            SetStreamVisible(false);
+            return;
+        }
+
+        Vector3 holePosition = paintEmitter.GetHoleWorldPosition();
+        float holeRadius = GetHoleRadius();
+        float maxY = holePosition.y + holeRadius * 2f;
+
+        streamPoints.Clear();
+        streamPoints.Add(holePosition);
+
+        for (int i = 0; i < activeCount; i++)
+        {
+            SPHParticle particle = solver.GetParticle(i);
+            if (particle.position.y > maxY)
+                continue;
+
+            streamPoints.Add(particle.position);
+        }
+
+        if (streamPoints.Count < 2)
+        {
+            SetStreamVisible(false);
+            return;
+        }
+
+        streamPoints.Sort((a, b) => b.y.CompareTo(a.y));
+        int pointLimit = Mathf.Max(2, maxStreamPoints);
+        if (streamPoints.Count > pointLimit)
+        {
+            for (int write = 1; write < pointLimit; write++)
+            {
+                int read = Mathf.RoundToInt(write * (streamPoints.Count - 1f) / (pointLimit - 1f));
+                streamPoints[write] = streamPoints[read];
+            }
+            streamPoints.RemoveRange(pointLimit, streamPoints.Count - pointLimit);
+        }
+
+        float streamDiameter = holeRadius * 2f * Mathf.Max(0.01f, streamRadiusMultiplier);
+        Color streamColor = solver.GetParticle(0).color;
+        streamColor.a = 0.95f;
+        streamRenderer.startWidth = streamDiameter;
+        streamRenderer.endWidth = streamDiameter * 0.65f;
+        streamRenderer.startColor = streamColor;
+        streamRenderer.endColor = new Color(streamColor.r, streamColor.g, streamColor.b, 0.65f);
+        streamRenderer.positionCount = streamPoints.Count;
+        streamRenderer.SetPositions(streamPoints.ToArray());
+        SetStreamVisible(true);
+    }
+
+    private float GetHoleRadius()
+    {
+        if (paintEmitter != null)
+            return Mathf.Max(0.001f, paintEmitter.holeRadius);
+
+        if (solver != null)
+            return Mathf.Max(0.001f, solver.orificeDiameter * 0.5f);
+
+        return Mathf.Max(0.001f, particleSize * 0.5f);
+    }
+
+    private void EnsureStreamRenderer()
+    {
+        if (streamRenderer != null)
+            return;
+
+        GameObject go = new GameObject("PaintAirStream");
+        go.transform.SetParent(transform, false);
+
+        streamRenderer = go.AddComponent<LineRenderer>();
+        streamRenderer.sharedMaterial = runtimeStreamMaterial;
+        streamRenderer.useWorldSpace = true;
+        streamRenderer.numCapVertices = 8;
+        streamRenderer.numCornerVertices = 4;
+        streamRenderer.alignment = LineAlignment.View;
+        streamRenderer.textureMode = LineTextureMode.Stretch;
+        streamRenderer.startColor = Color.red;
+        streamRenderer.endColor = new Color(1f, 0f, 0f, 0.65f);
+        SetStreamVisible(false);
+    }
+
+    private void SetStreamVisible(bool visible)
+    {
+        if (streamRenderer != null && streamRenderer.enabled != visible)
+            streamRenderer.enabled = visible;
     }
 
     private void EnsurePool(int targetCount)

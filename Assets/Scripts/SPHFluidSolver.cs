@@ -78,6 +78,10 @@ public class SPHFluidSolver : MonoBehaviour
     [Tooltip("أقصى عدد جسيمات تُصدر في فريم واحد")]
     public int   maxSpawnPerFrame = 20;
 
+    [Header("Emission Source (Phase 5)")]
+    [Tooltip("مفعّل: الإصدار الداخلي Torricelli/Bernoulli. معطّل: يُترك الإصدار لـ PaintEmitter الخارجي (flowRate)")]
+    public bool useInternalEmission = true;
+
     // ── Coalescence (Section 2.5.1) ──
     //   When ON, particles within `coalescenceRadius` whose relative speed is below
     //   `maxCoalesceRelSpeed` are merged into one — drop a denser, longer-lived
@@ -161,7 +165,8 @@ public class SPHFluidSolver : MonoBehaviour
     {
         if (dt <= 0f) return;
 
-        EmitParticles(dt);
+        if (useInternalEmission)
+            EmitParticles(dt);
 
         if (particles.Count == 0) return;
 
