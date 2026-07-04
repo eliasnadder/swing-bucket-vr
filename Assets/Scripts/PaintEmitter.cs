@@ -76,8 +76,8 @@ public class PaintEmitter : MonoBehaviour
                 Random.Range(-spraySpread * 0.5f, spraySpread * 0.2f),
                 Random.Range(-spraySpread, spraySpread));
 
-            solver.AddParticle(spawnPosition, baseVelocity + downward + spread, color);
-            paintVolume -= particleVolume;
+            // بعد
+            solver.AddParticle(spawnPosition, baseVelocity + downward + spread, solver.currentPaintColor); paintVolume -= particleVolume;
         }
     }
 

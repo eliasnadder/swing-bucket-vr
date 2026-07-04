@@ -35,11 +35,34 @@ public class SPHRenderer : MonoBehaviour
     private Material runtimeStreamMaterial;
     private LineRenderer streamRenderer;
 
+    [Header("Paint Level Feedback")]
+    [Tooltip("نسبة الملء (0–1) دون هذا الحد يبدأ الخط بالتضاؤل")]
+    [Range(0f, 1f)] public float streamThinBelowFill = 0.15f;
+    [Tooltip("نسبة الملء (0–1) دون هذا الحد يتوقف الخط المستمر ويتحول لقطرات")]
+    [Range(0f, 1f)] public float streamStopBelowFill = 0.03f;
+    [Tooltip("أدنى عرض للخط كنسبة من العرض الكامل (عند حافة التحول للقطرات)")]
+    [Range(0f, 1f)] public float streamMinWidthRatio = 0.15f;
+    [Tooltip("حجم قطرة التقطر كنسبة من نصف قطر الفتحة")]
+    [Range(0.1f, 3f)] public float dripRadiusRatio = 0.6f;
+    [Tooltip("الفترة الزمنية بين كل قطرة (ثانية) عند حد التقطر")]
+    public float dripInterval = 0.35f;
+    [Tooltip("حياة القطرة (ثانية)")]
+    public float dripLifetime = 1.2f;
+    [Tooltip("سرعة القطرة الأولية للأسفل")]
+    public float dripInitialSpeed = 1.5f;
+
+    // فلاج يُفعَّل بعد أول فريم فيه solver.PaintHeight > 0 — يمنع القطرات من الظهور قبل أن يبدأ النظام
+    private bool paintSystemReady;
+
+    private float dripTimer;
+    private readonly List<SplashDroplet> dripPool = new List<SplashDroplet>(16);
+    private int dripCursor;
+
     [Header("Canvas Splash (transient, cosmetic)")]
-    public int   splashPoolSize       = 48;
+    public int splashPoolSize = 48;
     public float splashDropletLifetime = 0.25f;
-    public float splashInitialSpeed    = 20f;   // world units/s — cosmetic
-    public float splashGravity         = 300f;  // cosmetic, snappier than world g
+    public float splashInitialSpeed = 20f;   // world units/s — cosmetic
+    public float splashGravity = 300f;  // cosmetic, snappier than world g
     private readonly List<SplashDroplet> splashPool = new List<SplashDroplet>();
     private int splashCursor;
 
@@ -55,12 +78,12 @@ public class SPHRenderer : MonoBehaviour
         public GameObject gameObject;
         public Renderer renderer;
         public MaterialPropertyBlock block;
-        public Color    color;
-        public Vector3  velocity;
-        public float    baseRadius;
-        public float    age;
-        public float    lifetime;
-        public bool     active;
+        public Color color;
+        public Vector3 velocity;
+        public float baseRadius;
+        public float age;
+        public float lifetime;
+        public bool active;
     }
 
     private void Awake()
@@ -77,10 +100,11 @@ public class SPHRenderer : MonoBehaviour
             particleMaterial = CreateDefaultMaterial();
 
         runtimeMaterial = particleMaterial;
-        runtimeStreamMaterial = streamMaterial != null ? streamMaterial : CreateDefaultMaterial();
+        runtimeStreamMaterial = streamMaterial != null ? streamMaterial : CreateStreamMaterial();
         EnsurePool(initialPoolSize);
         EnsureStreamRenderer();
         EnsureSplashPool(Mathf.Max(1, splashPoolSize));
+        EnsureDripPool(16);
         SubscribeSplash();
     }
 
@@ -102,6 +126,26 @@ public class SPHRenderer : MonoBehaviour
     {
         RenderParticles();
         UpdateSplash();
+        UpdateDrips();
+
+        // تقطّر مستقل عن وجود الجسيمات — يعمل حتى لو توقفت الجسيمات عن الخروج
+        if (showAirStream && solver != null && paintEmitter != null)
+        {
+            float fillRatio = solver.maxPaintHeight > 0f
+                ? Mathf.Clamp01(solver.PaintHeight / solver.maxPaintHeight)
+                : 0f;
+
+            // انتظر حتى يُسجّل النظام ملءً حقيقياً قبل تفعيل القطرات
+            // هذا يمنع القطرات من الظهور في أول فريم قبل أن يبدأ SPHFluidSolver.Start()
+            if (!paintSystemReady)
+            {
+                if (fillRatio > streamThinBelowFill)
+                    paintSystemReady = true;
+                return; // لا قطرات حتى يثبت النظام على قيمة ملء معقولة
+            }
+
+            UpdateDripEmission(fillRatio);
+        }
     }
 
     public void RenderParticles()
@@ -143,7 +187,39 @@ public class SPHRenderer : MonoBehaviour
 
     private void RenderAirStream(int activeCount)
     {
-        if (!showAirStream || streamRenderer == null || paintEmitter == null || activeCount <= 0)
+        if (!showAirStream || streamRenderer == null || paintEmitter == null)
+        {
+            SetStreamVisible(false);
+            return;
+        }
+
+        // ── نسبة الملء: مصدر الحقيقة هو solver.PaintHeight / maxPaintHeight ──
+        float fillRatio = 1f;
+        if (solver != null && solver.maxPaintHeight > 0f)
+            fillRatio = Mathf.Clamp01(solver.PaintHeight / solver.maxPaintHeight);
+
+        // إذا لم يُهيّأ النظام بعد (أول فريمات)، افترض ملء كامل لتجنب ظهور قطرات خاطئ
+        if (!paintSystemReady)
+            fillRatio = 1f;
+
+        // ── الخيط يظهر فقط إذا كان الدلو يُصدر طلاءً فعلاً ──
+        // نتحقق من معدل التدفق: إذا كان صفراً (دلو متوقف أو فارغ) نخفي الخيط
+        // حتى لو ما زالت توجد جسيمات في الهواء من الإصدار السابق
+        float flowRate = solver != null ? solver.CurrentFlowRate : 0f;
+
+        // معيار احتياطي: سرعة الدلو نفسه — عندما يتخامد ويتوقف تصبح السرعة ≈ 0
+        // هذا يعمل حتى مع PaintEmitter الخارجي الذي لا يحدّث CurrentFlowRate
+        bool bucketMoving = true;
+        if (paintEmitter != null && paintEmitter.bucket != null)
+        {
+            float bucketSpeed = paintEmitter.bucket.BucketVelocity.magnitude;
+            // عتبة منخفضة جداً (0.5 cm/s بوحدات Unity) — الدلو الساكن تماماً أقل من هذا
+            bucketMoving = bucketSpeed > 0.5f;
+        }
+
+        bool isFlowing = (flowRate > 0.0001f || bucketMoving) && fillRatio > streamStopBelowFill;
+
+        if (!isFlowing || activeCount <= 0)
         {
             SetStreamVisible(false);
             return;
@@ -181,29 +257,97 @@ public class SPHRenderer : MonoBehaviour
         BuildSmoothPath(streamPoints, targetPath, Mathf.Max(1, streamSubdivisions));
         TemporalSmooth(targetPath, streamSmoothing);
 
-        float streamDiameter = holeRadius * 2f * Mathf.Max(0.01f, streamRadiusMultiplier);
+        // النقطة الأولى (فتحة السطل) لازم تكون دقيقة دايماً، بدون lag
+        if (smoothedPath.Count > 0 && targetPath.Count > 0)
+            smoothedPath[0] = targetPath[0];
+
+        // ── عرض الخط يتناسب مع نسبة الملء ──
+        // فوق streamThinBelowFill: العرض الكامل
+        // بين streamStopBelowFill و streamThinBelowFill: يتضاءل حتى streamMinWidthRatio
+        float widthT = Mathf.InverseLerp(streamStopBelowFill, streamThinBelowFill, fillRatio);
+        float widthScale = Mathf.Lerp(streamMinWidthRatio, 1f, widthT);
+
+        float baseDiameter = holeRadius * 2f * Mathf.Max(0.01f, streamRadiusMultiplier);
+        float streamDiameter = baseDiameter * widthScale;
+
+        // الشفافية أيضاً تتضاؤل مع نقصان الملء
+        float alphaTop = Mathf.Lerp(0.2f, 0.95f, widthT);
+        float alphaBot = Mathf.Lerp(0.1f, 0.55f, widthT);
+
         Color streamColor = GetStreamColor();
 
         streamRenderer.startWidth = streamDiameter;
-        streamRenderer.endWidth   = streamDiameter * 0.7f;
+        streamRenderer.endWidth = streamDiameter * 0.7f;
 
         Gradient gradient = new Gradient();
         gradient.SetKeys(
             new[]
             {
-                new GradientColorKey(streamColor, 0f), // top — full bucket color
-                new GradientColorKey(streamColor, 1f)  // bottom — same RGB, lower alpha (below)
+                new GradientColorKey(streamColor, 0f),
+                new GradientColorKey(streamColor, 1f)
             },
             new[]
             {
-                new GradientAlphaKey(0.95f, 0f),
-                new GradientAlphaKey(0.55f, 1f)
+                new GradientAlphaKey(alphaTop, 0f),
+                new GradientAlphaKey(alphaBot, 1f)
             });
         streamRenderer.colorGradient = gradient;
+        streamRenderer.sharedMaterial.color = streamColor;
 
         streamRenderer.positionCount = smoothedPath.Count;
         streamRenderer.SetPositions(smoothedPath.ToArray());
         SetStreamVisible(true);
+    }
+
+    // ── تقطّر تدريجي: يُصدر قطرات متقطعة بدل الخط عند الحد الأدنى ──
+    private void UpdateDripEmission(float fillRatio)
+    {
+        // فقط في المنطقة بين الإيقاف الكلي وحد التضاؤل
+        if (fillRatio > streamThinBelowFill || fillRatio <= 0f || paintEmitter == null)
+            return;
+
+        // كلما قلّ الملء كلما قلّ معدل القطرات
+        float dripRate = Mathf.Lerp(0f, 1f / Mathf.Max(0.05f, dripInterval),
+                                    Mathf.InverseLerp(0f, streamThinBelowFill, fillRatio));
+
+        dripTimer += Time.deltaTime * dripRate;
+
+        while (dripTimer >= 1f)
+        {
+            dripTimer -= 1f;
+            SpawnDrip();
+        }
+    }
+
+    private void SpawnDrip()
+    {
+        SplashDroplet d = AcquireDrip();
+        if (d == null) return;
+
+        float r = GetHoleRadius() * dripRadiusRatio;
+        Color c = GetStreamColor();
+
+        // قطرة تسقط من الفتحة مباشرة مع رجّة صغيرة
+        Vector3 pos = paintEmitter.GetHoleWorldPosition();
+        Vector3 jitter = new Vector3(
+            Random.Range(-r * 0.5f, r * 0.5f),
+            0f,
+            Random.Range(-r * 0.5f, r * 0.5f));
+
+        d.color = c;
+        d.velocity = Vector3.down * dripInitialSpeed + jitter;
+        d.baseRadius = r;
+        d.age = 0f;
+        d.lifetime = dripLifetime * Random.Range(0.8f, 1.2f);
+        d.active = true;
+
+        d.gameObject.transform.position = pos + jitter;
+        d.gameObject.transform.localScale = Vector3.one * (r * 2f);
+        d.block.Clear();
+        d.block.SetColor("_BaseColor", c);
+        d.block.SetColor("_Color", c);
+        d.renderer.SetPropertyBlock(d.block);
+        d.gameObject.SetActive(true);
     }
 
     private static Vector3 CatmullRom(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
@@ -337,6 +481,19 @@ public class SPHRenderer : MonoBehaviour
         }
     }
 
+    // أضف هاد الدالة الجديدة
+    private Material CreateStreamMaterial()
+    {
+        Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader == null) shader = Shader.Find("Unlit/Color");
+        if (shader == null) shader = Shader.Find("Sprites/Default");
+        if (shader == null) shader = Shader.Find("Standard");
+
+        Material material = new Material(shader);
+        material.color = Color.white;
+        return material;
+    }
+
     private Material CreateDefaultMaterial()
     {
         Shader shader = Shader.Find("Universal Render Pipeline/Lit");
@@ -425,9 +582,9 @@ public class SPHRenderer : MonoBehaviour
             splashPool.Add(new SplashDroplet
             {
                 gameObject = go,
-                renderer   = r,
-                block      = new MaterialPropertyBlock(),
-                active     = false
+                renderer = r,
+                block = new MaterialPropertyBlock(),
+                active = false
             });
         }
     }
@@ -451,12 +608,12 @@ public class SPHRenderer : MonoBehaviour
             Vector3 ringDir = new Vector3(Mathf.Cos(angle), 0.3f, Mathf.Sin(angle));
             Vector3 vel = ringDir * splashInitialSpeed + Vector3.up * (splashInitialSpeed * 0.4f);
 
-            d.color      = c;
-            d.velocity   = vel;
+            d.color = c;
+            d.velocity = vel;
             d.baseRadius = baseRadius;
-            d.age        = 0f;
-            d.lifetime   = splashDropletLifetime * Random.Range(0.8f, 1.2f);
-            d.active     = true;
+            d.age = 0f;
+            d.lifetime = splashDropletLifetime * Random.Range(0.8f, 1.2f);
+            d.active = true;
 
             d.gameObject.transform.position = hitPoint;
             d.gameObject.transform.localScale = Vector3.one * (baseRadius * 2f);
@@ -506,6 +663,72 @@ public class SPHRenderer : MonoBehaviour
             // fade by shrinking (opaque material — no blend mode required)
             float t = d.age / d.lifetime;
             float scale = d.baseRadius * 2f * (1f - t);
+            d.gameObject.transform.localScale = Vector3.one * Mathf.Max(0f, scale);
+        }
+    }
+
+    // ── Drip pool: قطرات متقطعة تسقط من الفتحة عند نفاد الطلاء تقريباً ──
+    private void EnsureDripPool(int count)
+    {
+        while (dripPool.Count < count)
+        {
+            GameObject go = new GameObject($"DripDroplet_{dripPool.Count}");
+            go.transform.SetParent(transform, false);
+            MeshFilter mf = go.AddComponent<MeshFilter>();
+            mf.sharedMesh = particleMesh;
+            Renderer r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = runtimeMaterial;
+            go.SetActive(false);
+            dripPool.Add(new SplashDroplet
+            {
+                gameObject = go,
+                renderer = r,
+                block = new MaterialPropertyBlock(),
+                active = false
+            });
+        }
+    }
+
+    private SplashDroplet AcquireDrip()
+    {
+        for (int i = 0; i < dripPool.Count; i++)
+        {
+            int idx = (dripCursor + i) % dripPool.Count;
+            if (!dripPool[idx].active)
+            {
+                dripCursor = idx + 1;
+                return dripPool[idx];
+            }
+        }
+        return null;
+    }
+
+    private void UpdateDrips()
+    {
+        float dt = Time.deltaTime;
+        if (dt <= 0f) return;
+
+        for (int i = 0; i < dripPool.Count; i++)
+        {
+            SplashDroplet d = dripPool[i];
+            if (!d.active) continue;
+
+            d.age += dt;
+            if (d.age >= d.lifetime)
+            {
+                d.active = false;
+                d.gameObject.SetActive(false);
+                continue;
+            }
+
+            // جاذبية واقعية للقطرة + تناقص الحجم مع الوقت لتوحي بالتبخر/الاندماج
+            d.velocity += Vector3.down * (splashGravity * 0.3f) * dt;
+            d.gameObject.transform.position += d.velocity * dt;
+
+            float t = d.age / d.lifetime;
+            // القطرة تكبر قليلاً في البداية (تجمّع) ثم تتناقص (تضرب السطح أو تتبخر)
+            float sizeT = t < 0.3f ? Mathf.Lerp(0.6f, 1f, t / 0.3f) : Mathf.Lerp(1f, 0f, (t - 0.3f) / 0.7f);
+            float scale = d.baseRadius * 2f * sizeT;
             d.gameObject.transform.localScale = Vector3.one * Mathf.Max(0f, scale);
         }
     }

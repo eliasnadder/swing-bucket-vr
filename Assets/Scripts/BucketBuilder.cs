@@ -253,6 +253,14 @@ public class BucketBuilder : MonoBehaviour
         bucketModelInstance.transform.localScale = bucketModelLocalScale;
 
         CaptureBucketVisualBounds(bucketModelInstance.transform);
+
+        // احذف أي PaintSpawnPoint قديم حتى يُعاد إنشاؤه بموضع صحيح
+        if (paintSpawnPoint != null)
+        {
+            DestroyImmediate(paintSpawnPoint.gameObject);
+            paintSpawnPoint = null;
+        }
+
         BuildImportedLiquidVolume();
     }
 
@@ -270,15 +278,43 @@ public class BucketBuilder : MonoBehaviour
         if (liquidTopLocalY <= liquidBottomLocalY)
             liquidTopLocalY = liquidBottomLocalY + Mathf.Max(0.05f, bucketVisualBoundsLocal.size.y * 0.9f);
 
+        // نحسب موضع قاع السطل مباشرة بالـ World Space من الـ Renderer bounds
+        // ثم نحوّله لـ local space للـ BucketModel — هاد يتجنب أي خطأ ناتج عن الـ rotation/scale
         if (paintSpawnPoint == null)
         {
             GameObject spawn = new GameObject("PaintSpawnPoint");
-            spawn.transform.SetParent(transform, false);
-            spawn.transform.localPosition = new Vector3(0f, bucketVisualBoundsLocal.min.y + wallThickness * 0.5f, 0f);
+            Transform parent = bucketModelInstance != null ? bucketModelInstance.transform : transform;
+            spawn.transform.SetParent(parent, false);
+
+            // احسب موضع قاع السطل بالـ World Space
+            Vector3 worldBottomCenter = GetBucketWorldBottomCenter();
+            // حوّله لـ local space للـ parent
+            spawn.transform.position = worldBottomCenter;
             paintSpawnPoint = spawn.transform;
         }
 
         BuildLiquidVolume(innerBottomRadius, innerTopRadius);
+    }
+
+    // يُعيد موضع قاع السطل المرئي بالـ World Space (مركز X/Z، أسفل Y)
+    private Vector3 GetBucketWorldBottomCenter()
+    {
+        if (bucketModelInstance == null) return transform.position;
+
+        Renderer[] renderers = bucketModelInstance.GetComponentsInChildren<Renderer>(true);
+        bool initialized = false;
+        Bounds worldBounds = new Bounds();
+
+        foreach (Renderer r in renderers)
+        {
+            if (r is LineRenderer) continue;
+            if (!initialized) { worldBounds = r.bounds; initialized = true; }
+            else worldBounds.Encapsulate(r.bounds);
+        }
+
+        if (!initialized) return transform.position;
+
+        return new Vector3(worldBounds.center.x, worldBounds.min.y + wallThickness, worldBounds.center.z);
     }
 
     public Vector3 GetPaintSpawnPosition()

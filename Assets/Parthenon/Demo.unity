@@ -2086,6 +2086,13 @@ MonoBehaviour:
   streamMaterial: {fileID: 0}
   streamSubdivisions: 6
   streamSmoothing: 0.45
+  streamThinBelowFill: 0.25
+  streamStopBelowFill: 0.05
+  streamMinWidthRatio: 0.15
+  dripRadiusRatio: 0.6
+  dripInterval: 0.35
+  dripLifetime: 1.2
+  dripInitialSpeed: 1.5
   splashPoolSize: 48
   splashDropletLifetime: 0.25
   splashInitialSpeed: 20

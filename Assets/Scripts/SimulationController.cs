@@ -75,18 +75,19 @@ public class SimulationController : MonoBehaviour
 
         if (fluidSolver != null)
         {
+            // بعد
             for (int i = 0; i < emitterCache.Count; i++)
             {
                 PaintEmitter e = emitterCache[i];
                 if (e == null) continue;
 
-                // (a) auto-wire
                 e.solver = fluidSolver;
 
-                // (b) per-emitter colour → fluidSolver reads at AddParticle
-                fluidSolver.ChangePaintColor(GetEmitterColor(i));
+                // اللون الخاص بالسطل الأساسي (index 0) بقى مسؤولية الـ dropdown عبر
+                // SimulationUIManager.ApplyColor. الكتابة هون كل فريم كانت عم تلغي اختيار المستخدم.
+                if (i > 0)
+                    fluidSolver.ChangePaintColor(GetEmitterColor(i));
 
-                // (c) per-bucket emission, using the per-bucket hole/flow config
                 e.Emit(dt);
             }
 

@@ -156,3 +156,43 @@ The current build simulates paint as a custom SPH fluid, emits it from a swingin
 - canvas stores the final image
 - renderer shows the particles
 
+
+---
+
+## Air Stream Visual (updated 2026-07-04)
+
+### Spawn position
+
+The stream origin (`PaintSpawnPoint`) is now computed from the **world-space bounding box** of the imported bucket mesh, not from local-space coordinates. This fixes the offset that appeared when the FBX had a non-centered pivot or a non-trivial rotation (e.g. X: 270°).
+
+`BucketBuilder.GetBucketWorldBottomCenter()` collects all `Renderer.bounds` under `BucketModel`, finds the minimum Y and the center X/Z, and places the spawn point there.
+
+### Flow-level feedback
+
+The stream width and opacity now scale with the remaining paint level (`solver.PaintHeight / solver.maxPaintHeight`):
+
+- Above 15% fill — full stream
+- 3–15% fill — stream thins and fades; isolated drip droplets appear
+- Below 3% fill — stream hidden; drips only
+
+Drip droplets are spawned from a recycled pool of 16 objects, fall from the hole position, and shrink to zero over ~1.2 seconds.
+
+### Stream hides when bucket is at rest
+
+The stream disappears as soon as the bucket stops swinging. Visibility requires both:
+
+1. `solver.CurrentFlowRate > 0` **or** `bucket.BucketVelocity.magnitude > 0.5`
+2. `fillRatio > streamStopBelowFill`
+
+In-flight particles continue to fall and paint the canvas normally after the stream is hidden.
+
+### Single source of truth
+
+All stream visuals (color, width, origin) read from the same sources:
+
+| Property | Source |
+|---|---|
+| Color | `solver.currentPaintColor` |
+| Radius | `solver.OrificeRadius` |
+| Origin | `paintEmitter.GetHoleWorldPosition()` |
+| Fill ratio | `solver.PaintHeight / solver.maxPaintHeight` |

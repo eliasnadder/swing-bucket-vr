@@ -77,3 +77,33 @@ The canvas uses a `Texture2D`. Particles that hit the canvas are converted into 
 ## Default mode
 
 `useFull3D = false` by default. That keeps the motion mostly 2D/2.5D and makes the simulation easier to understand and faster to run.
+
+---
+
+## Air Stream System (updated 2026-07-04)
+
+### SPHRenderer — Paint Level Feedback fields
+
+Added to the `SPHRenderer` Inspector under **Paint Level Feedback**:
+
+```
+streamThinBelowFill   (default 0.15)  — fill ratio where stream starts thinning
+streamStopBelowFill   (default 0.03)  — fill ratio where stream stops completely
+streamMinWidthRatio   (default 0.15)  — minimum width as fraction of full width
+dripRadiusRatio       (default 0.60)  — drip size relative to orifice radius
+dripInterval          (default 0.35)  — seconds between drips in the drip zone
+dripLifetime          (default 1.20)  — drip droplet lifespan in seconds
+dripInitialSpeed      (default 1.50)  — initial downward speed of each drip
+```
+
+### BucketBuilder — GetBucketWorldBottomCenter()
+
+New private method. Collects world-space `Renderer.bounds` from all renderers under `BucketModel` and returns the world-space bottom-center of the visible mesh. Used to place `PaintSpawnPoint` correctly regardless of FBX pivot or import rotation.
+
+### Stream visibility gate
+
+`RenderAirStream` now requires:
+- `isFlowing = (CurrentFlowRate > 0 || BucketVelocity.magnitude > 0.5) && fillRatio > streamStopBelowFill`
+- `activeCount > 0`
+
+This causes the stream line to vanish as soon as the bucket stops swinging, while in-flight particles continue their trajectory unaffected.
