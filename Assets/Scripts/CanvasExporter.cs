@@ -4,7 +4,6 @@ using System.IO;
 public class CanvasExporter : MonoBehaviour
 {
     [Header("Canvas Reference")]
-    public PaintSurfaceCanvas canvasTarget;
     public PaintCanvas modernCanvasTarget;
 
     [Header("UI Export Button")]
@@ -34,10 +33,6 @@ public class CanvasExporter : MonoBehaviour
         {
             modernCanvasTarget.FlushPending();
             structuralTexture = modernCanvasTarget.GetPaintTexture();
-        }
-        else if (canvasTarget != null)
-        {
-            structuralTexture = canvasTarget.GetPaintTexture();
         }
 
         if (structuralTexture == null)

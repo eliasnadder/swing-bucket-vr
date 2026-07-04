@@ -72,6 +72,12 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     private Vector3 previousPosition;
     private bool firstFrame = true;
 
+    // ── Phase 3: swing counter ── counts θ zero-crossings; each pair is one
+    //    full oscillation. When swingHalfCycles reaches maxSwings*2 the RK4
+    //    integration is skipped so the bucket holds at the stop point.
+    private int swingHalfCycles;
+    private float prevThetaForCount;
+    private bool countingSwings;
 
     // موضع نقطة التعليق المحسوبة (pivot = bucket − rope_offset)
     private Vector3 computedPivotWorld;
@@ -87,6 +93,11 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public Vector3 DailVelocity => BucketVelocity;
     public float CurrentLength => currentLength;
     public float CurrentTheta => theta;
+    /// <summary>Completed full swings (½-cycles ÷ 2). Read-only hook for UI/reports.</summary>
+    public int SwingCount => swingHalfCycles / 2;
+
+    /// <summary>PivotX/PivotY additive offset (cm) applied atop pivotPoint.position.</summary>
+    Vector3 PivotOffsetVector => new Vector3(PivotX, PivotY, 0f);
 
 
     // ─── هيكل RK4 ───
@@ -126,35 +137,21 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         phi = initialPhi * Mathf.Deg2Rad;
         omega_phi = 0f;
 
-        // if (pivotPoint == null)
-        // {
-        //     var goPivot = new GameObject("Auto_Pivot");
-        //     Vector3 offset = SphericalToCartesian(L0, theta, phi);
-        //     goPivot.transform.position = transform.position - offset;
-        //     pivotPoint = goPivot.transform;
-        // }
-
-        // transform.position = pivotPoint.position + SphericalToCartesian(L0, theta, phi);
-        // previousPosition = transform.position;
-        // BucketVelocity = Vector3.zero;
-        // EffectiveGravity = g;
-        // currentLength = L0;
-
-        //* ② تحديد موضع نقطة التعليق
+        //* ② تحديد موضع نقطة التعليق (+ إزاحة PivotX/PivotY)
         if (pivotPoint != null)
         {
-            computedPivotWorld = pivotPoint.position;
+            computedPivotWorld = pivotPoint.position + PivotOffsetVector;
         }
         else
         {
             // pivot = bucket − ropeOffset (pivot دائماً فوق الدلو لو لم يُعيّن)
             Vector3 initOffset = SphericalToCartesian(rope.CurrentLength, theta, phi);
-            computedPivotWorld = transform.position - initOffset;
+            computedPivotWorld = transform.position - initOffset + PivotOffsetVector;
         }
 
         //* ③ حماية: تأكّد أن computedPivotWorld ليس NaN/Infinity
         if (float.IsNaN(computedPivotWorld.x) || float.IsNaN(computedPivotWorld.y) || float.IsNaN(computedPivotWorld.z))
-            computedPivotWorld = transform.position + Vector3.up * rope.CurrentLength;
+            computedPivotWorld = transform.position + Vector3.up * rope.CurrentLength + PivotOffsetVector;
 
         //* ④ تعيين موضع الدلو الأولي من نقطة التعليق والزاوية
         Vector3 initPos = computedPivotWorld + SphericalToCartesian(rope.CurrentLength, theta, phi);
@@ -243,15 +240,7 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         ropeRenderer.useWorldSpace = true;
         ropeRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         ropeRenderer.receiveShadows = false;
-
-        // Option 1: Use a gradient for the rope color
-        Gradient gradient = new Gradient();
-        gradient.SetKeys(
-            new[] { new GradientColorKey(new Color(0.7f, 0.7f, 0.7f), 0f),
-                new GradientColorKey(new Color(0.25f, 0.25f, 0.25f), 1f) },
-            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) }
-        );
-        ropeRenderer.colorGradient = gradient;
+        ApplyRopeGradient();
 
         Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
         if (sh == null) sh = Shader.Find("Unlit/Color");
@@ -261,43 +250,19 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         var mat = new Material(sh);
         mat.color = new Color(0.55f, 0.55f, 0.55f);
         ropeRenderer.material = mat;
-
-        // Option 2: Use a material for the rope color
-        // Sorting: يضمن الرسم فوق العناصر الأخرى
-        // ropeRenderer.sortingLayerName = "Default";
-        // ropeRenderer.sortingOrder = 10;
-
-        // ApplyRopeGradient();
-        // ApplyRopeMaterial();
     }
+
     void ApplyRopeGradient()
     {
         if (ropeRenderer == null) return;
         Gradient gradient = new Gradient();
         gradient.SetKeys(
-            new[] { new GradientColorKey(rope.colorRelaxed, 0f), new GradientColorKey(rope.colorRelaxed * 0.7f, 1f) },
+            new[] { new GradientColorKey(new Color(0.7f, 0.7f, 0.7f), 0f),
+                new GradientColorKey(new Color(0.25f, 0.25f, 0.25f), 1f) },
             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) }
         );
         ropeRenderer.colorGradient = gradient;
     }
-
-    void ApplyRopeMaterial()
-    {
-        if (ropeRenderer == null) return;
-        Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
-        if (sh == null) sh = Shader.Find("Unlit/Color");
-        if (sh == null) sh = Shader.Find("Sprites/Default");
-        if (sh == null) sh = Shader.Find("Standard");
-
-        var mat = new Material(sh);
-        mat.color = rope.colorRelaxed;
-        if (mat.HasProperty("_BaseColor"))
-        {
-            mat.SetColor("_BaseColor", rope.colorRelaxed);
-        }
-        ropeRenderer.material = mat;
-    }
-
 
     // ── [ContextMenu] إعادة ضبط بصريات الحبل للقيم الموصى بها ──
     [ContextMenu("Reset Rope Visuals to Defaults")]
@@ -344,48 +309,13 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
             if (mainCamera == null) mainCamera = Camera.main;
             uiCanvas.worldCamera = mainCamera;
             uiCanvas.planeDistance = 10f;
-            Debug.Log("[Rope] Canvas mode غُيِّر إلى ScreenSpaceCamera — الحبل سيظهر الآن.");
         }
     }
 
     Vector3 GetWindForce() =>
         windDirection.normalized * windCoeff * windSpeed * windSpeed;
 
-    // ─── Angular derivatives (no radial ODE — rope is constraint-based, three.js style) ───
-    // Derivs CalculateAngularDerivatives(State s)
-    // {
-    //     Derivs d;
-    //     d.d_t = s.o_t;
-    //     d.d_p = s.o_p;
-
-    //     float safeSinT = Mathf.Max(Mathf.Abs(Mathf.Sin(s.t)), 0.001f);
-
-    //     Vector3 Fw = GetWindForce();
-    //     Vector3 theta_hat = new Vector3(
-    //         Mathf.Cos(s.t) * Mathf.Cos(s.p),
-    //         Mathf.Sin(s.t),
-    //         Mathf.Cos(s.t) * Mathf.Sin(s.p));
-    //     Vector3 phi_hat = new Vector3(-Mathf.Sin(s.p), 0f, Mathf.Cos(s.p));
-
-    //     float windAlpha_theta = Vector3.Dot(Fw, theta_hat) / (currentMass * L0);
-    //     float windAlpha_phi = Vector3.Dot(Fw, phi_hat) / (currentMass * L0 * safeSinT);
-
-    //     d.d_ot = Mathf.Sin(s.t) * Mathf.Cos(s.t) * s.o_p * s.o_p
-    //            - (g / L0) * Mathf.Sin(s.t)
-    //            - (b / currentMass) * s.o_t
-    //            + windAlpha_theta;
-
-    //     d.d_op = -2f * (Mathf.Cos(s.t) / safeSinT) * s.o_t * s.o_p
-    //            - (b / currentMass) * s.o_p
-    //            + windAlpha_phi;
-
-    //     const float CLAMP = 1000f;
-    //     d.d_ot = Mathf.Clamp(d.d_ot, -CLAMP, CLAMP);
-    //     d.d_op = Mathf.Clamp(d.d_op, -CLAMP, CLAMP);
-
-    //     return d;
-    // }
-
+    // ─── Angular derivatives (no radial ODE — rope is constraint-based) ───
     Derivs CalculateAngularDerivatives(State s)
     {
         Derivs d;
@@ -442,73 +372,6 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         L = Mathf.Max(s.L + h * d.d_L, 0.1f),
         dL = s.dL + h * d.d_dL
     };
-
-    // void FixedUpdate()
-    // {
-    //     if (!Application.isPlaying || pivotPoint == null) return;
-
-    //     // Match index.html: SUBSTEPS=10 per frame so the large angular RK4
-    //     // integrates with the same effective step size as Three.js (≈0.0017s).
-    //     const int SUBSTEPS = 10;
-    //     float subDt = Time.fixedDeltaTime / SUBSTEPS;
-
-    //     for (int step = 0; step < SUBSTEPS; step++)
-    //     {
-    //         State s = new State { t = theta, o_t = omega_theta, p = phi, o_p = omega_phi };
-
-    //         Derivs d1 = CalculateAngularDerivatives(s);
-    //         Derivs d2 = CalculateAngularDerivatives(StepAngular(s, d1, subDt * 0.5f));
-    //         Derivs d3 = CalculateAngularDerivatives(StepAngular(s, d2, subDt * 0.5f));
-    //         Derivs d4 = CalculateAngularDerivatives(StepAngular(s, d3, subDt));
-
-    //         theta += (subDt / 6f) * (d1.d_t + 2 * d2.d_t + 2 * d3.d_t + d4.d_t);
-    //         omega_theta += (subDt / 6f) * (d1.d_ot + 2 * d2.d_ot + 2 * d3.d_ot + d4.d_ot);
-    //         phi += (subDt / 6f) * (d1.d_p + 2 * d2.d_p + 2 * d3.d_p + d4.d_p);
-    //         omega_phi += (subDt / 6f) * (d1.d_op + 2 * d2.d_op + 2 * d3.d_op + d4.d_op);
-
-    //         theta = Mathf.Clamp(theta, -Mathf.PI * 0.95f, Mathf.PI * 0.95f);
-
-    //         // ── Three.js-style rigid rope constraint ──
-    //         // Full position + velocity projection every substep (matches rigid mode).
-    //         Vector3 idealPos = pivotPoint.position + SphericalToCartesian(L0, theta, phi);
-    //         Vector3 velFromAngular = ComputeAngularVelocity(L0, theta, phi, omega_theta, omega_phi);
-
-    //         Vector3 dirVec = idealPos - pivotPoint.position;
-    //         float dist = dirVec.magnitude;
-    //         if (dist > 0.001f) dirVec.Normalize();
-
-    //         idealPos = pivotPoint.position + dirVec * L0;
-
-    //         float vRadial = Vector3.Dot(velFromAngular, dirVec);
-    //         velFromAngular -= dirVec * vRadial;
-
-    //         currentLength = L0;
-
-    //         if (!float.IsNaN(idealPos.x) && !float.IsNaN(idealPos.y) && !float.IsNaN(idealPos.z))
-    //             transform.position = idealPos;
-    //     }
-
-    //     // Angular acceleration for effective gravity (uses final angular velocities)
-    //     Derivs lastD = CalculateAngularDerivatives(new State { t = theta, o_t = omega_theta, p = phi, o_p = omega_phi });
-    //     AngularAccelerationTheta = lastD.d_ot;
-
-    //     // Velocity computed from total displacement over the full FixedUpdate frame
-    //     BucketVelocity = firstFrame
-    //         ? Vector3.zero
-    //         : (transform.position - previousPosition) / Time.fixedDeltaTime;
-
-    //     previousPosition = transform.position;
-    //     firstFrame = false;
-
-    //     float omega_tot = Mathf.Sqrt(omega_theta * omega_theta + omega_phi * omega_phi);
-    //     EffectiveGravity = Mathf.Max(g * 0.5f,
-    //         Mathf.Sqrt(
-    //             Mathf.Pow(g + omega_tot * omega_tot * currentLength * Mathf.Cos(theta), 2) +
-    //             Mathf.Pow(AngularAccelerationTheta * currentLength * Mathf.Sin(theta), 2)));
-
-    //     UpdateRopeVisuals();
-    // }
-
     void FixedUpdate()
     {
         if (!Application.isPlaying || pivotPoint == null) return;
@@ -528,6 +391,18 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
             BucketVelocity = Vector3.zero;
             previousPosition = transform.position;
             firstFrame = true;
+            swingHalfCycles = 0;
+            countingSwings = false;
+            return;
+        }
+
+        // ── Phase 3: freeze the pendulum once maxSwings oscillations complete ──
+        bool reachedLimit = maxSwings > 0 && swingHalfCycles >= maxSwings * 2;
+        if (reachedLimit)
+        {
+            omega_theta = omega_phi = 0f;
+            if (rope != null) rope.Velocity = 0f;
+            UpdateRopeVisuals();
             return;
         }
 
@@ -558,12 +433,22 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
             phi = initialPhi * Mathf.Deg2Rad;
             omega_phi = 0f;
             rope.ResetState();
+            swingHalfCycles = 0;
+            countingSwings = false;
         }
 
         // تطبيق الحدود
         rope.CurrentLength = Mathf.Clamp(rope.CurrentLength,
             rope.restLength * rope.minLengthRatio,
             rope.restLength * rope.maxLengthRatio);
+
+        // ── Phase 3: count θ zero-crossings (two crossings = one full swing) ──
+        if (maxSwings > 0)
+        {
+            if (!countingSwings) { prevThetaForCount = theta; countingSwings = true; }
+            else if (prevThetaForCount * theta < 0f) { swingHalfCycles++; prevThetaForCount = theta; }
+            else prevThetaForCount = theta;
+        }
 
         AngularAccelerationTheta =
             (d1.d_ot + 2 * d2.d_ot + 2 * d3.d_ot + d4.d_ot) / 6f;
@@ -576,7 +461,7 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
 
         // ② احسب موضع الدلو من نقطة التعليق (نقطة التعليق ثابتة والدلو يتحرك)
         if (pivotPoint != null)
-            computedPivotWorld = pivotPoint.position;
+            computedPivotWorld = pivotPoint.position + PivotOffsetVector;
 
         Vector3 newPos = computedPivotWorld + SphericalToCartesian(rope.CurrentLength, theta, phi);
 
@@ -595,8 +480,6 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         UpdateRopeVisuals();
     }
 
-
-
     void UpdateRopeVisuals()
     {
         if (ropeRenderer == null || pivotPoint == null) return;
@@ -605,7 +488,8 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         ropeRenderer.startWidth = rope.widthTop;
         ropeRenderer.endWidth = rope.widthBottom;
 
-        Vector3 start = pivotPoint.position;
+        // rope starts at the offset pivot (PivotX/PivotY) — kept in sync via FixedUpdate.
+        Vector3 start = computedPivotWorld;
         Vector3 end = transform.position;
 
         if (float.IsNaN(start.x) || float.IsNaN(start.y) || float.IsNaN(start.z))
@@ -616,22 +500,13 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
         if (sagDir.sqrMagnitude > 0.0001f) sagDir.Normalize();
         else sagDir = Vector3.right;
 
-        // float extension = Mathf.Max(0f, currentLength - L0);
-        // float sag = sagFactor * currentLength * Mathf.Exp(-extension * 5f);
         float sag = rope.ComputeSagAmount();
 
-
-        // float tensionRatio = Mathf.Clamp01(extension / (L0 * 0.2f));
-        // Color topColor = Color.Lerp(new Color(0.7f, 0.7f, 0.7f), new Color(0.8f, 0.3f, 0.3f), tensionRatio);
-        // Color bottomColor = Color.Lerp(new Color(0.25f, 0.25f, 0.25f), new Color(0.6f, 0.1f, 0.1f), tensionRatio);
         float tensionRatio = rope.TensionRatio;
         Color lerpedColor = Color.Lerp(rope.colorRelaxed, rope.colorTensed, tensionRatio);
 
         Gradient gradient = new Gradient();
-        // gradient.SetKeys(
-        //     new[] { new GradientColorKey(topColor, 0f), new GradientColorKey(bottomColor, 1f) },
-        //     new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) }
-        // );
+
         gradient.SetKeys(
             new[] { new GradientColorKey(lerpedColor, 0f), new GradientColorKey(lerpedColor * 0.7f, 1f) },
             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) }

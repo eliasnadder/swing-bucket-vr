@@ -11,6 +11,7 @@ public class SimulationUIManager : MonoBehaviour
     public SPHFluidSolver fluidEngine;
     public PaintCanvas canvasEngine;
     public BucketBuilder bucketBuilder;
+    public PaintEmitter paintEmitter;       // ponytail: manual emitter — flowRate slider drives this when internal Torricelli emission is disabled (Phase 5 useInternalEmission=false)
 
     // ============== Pendulum ==============
     [Header("Pendulum Sliders")]
@@ -28,6 +29,9 @@ public class SimulationUIManager : MonoBehaviour
 
     public Slider gravitySlider;
     public TextMeshProUGUI gravityValueText;
+
+    public Slider massSlider;               // ponytail: pendulum bob mass (m0)
+    public TextMeshProUGUI massValueText;
 
     public Slider initialAngleSlider;
     public TextMeshProUGUI initialAngleValueText;
@@ -55,6 +59,9 @@ public class SimulationUIManager : MonoBehaviour
     public Slider paintAmountSlider;
     public TextMeshProUGUI paintAmountValueText;
 
+    public Slider flowRateSlider;           // ponytail: PaintEmitter.flowRate (effective when useInternalEmission=false)
+    public TextMeshProUGUI flowRateValueText;
+
     // ============== Bucket ==============
     [Header("Bucket Sliders")]
     public Slider bucketRadiusSlider;
@@ -64,6 +71,9 @@ public class SimulationUIManager : MonoBehaviour
     [Header("Environment Sliders")]
     public Slider windSpeedSlider;
     public TextMeshProUGUI windSpeedValueText;
+
+    public Slider directionSlider;          // ponytail: wind azimuth (°); the recap's "direction" maps most naturally here
+    public TextMeshProUGUI directionValueText;
 
     public Slider temperatureSlider;
     public TextMeshProUGUI temperatureValueText;
@@ -90,7 +100,7 @@ public class SimulationUIManager : MonoBehaviour
     // ============== Buttons ==============
     [Header("Buttons")]
     public Button restartButton;
-public Button runSimulationButton;
+    public Button runSimulationButton;
 
     // ============== Slider Ranges (Section: bug-fix) ==============
     // ─────────────────────────────────────────────────────────────
@@ -124,6 +134,10 @@ public Button runSimulationButton;
     public Vector2 numberOfSwingsRange = new Vector2(0f, 50f); // عدّاد (maxSwings)
     public Vector2 canvasWidthRange = new Vector2(50f, 500f);  // cm (worldSize.x × 100)
     public Vector2 canvasHeightRange = new Vector2(50f, 500f); // cm (worldSize.y × 100)
+
+    public Vector2 massRange = new Vector2(0.1f, 20f);         // kg (pendulumEngine.m0)
+    public Vector2 directionRange = new Vector2(-180f, 180f);  // ° wind azimuth (drives both engine.windDirection)
+    public Vector2 flowRateRange = new Vector2(0f, 5f);         // PaintEmitter.flowRate
 
     // ============== Color Palette ==============
     private static readonly Color[] PaintColors =
@@ -169,6 +183,9 @@ public Button runSimulationButton;
         SetSliderRange(numberOfSwingsSlider, numberOfSwingsRange);
         SetSliderRange(canvasWidthSlider, canvasWidthRange);
         SetSliderRange(canvasHeightSlider, canvasHeightRange);
+        SetSliderRange(massSlider, massRange);
+        SetSliderRange(directionSlider, directionRange);
+        SetSliderRange(flowRateSlider, flowRateRange);
 
         // orificeSlider يبقى خاصاً لأن نطاقه يعتمد على BucketBuilder
         if (bucketBuilder != null && orificeSlider != null)
@@ -194,6 +211,9 @@ public Button runSimulationButton;
             SetSlider(ropeDampingSlider, pendulumEngine.c_rope);
             SetSlider(airResistanceSlider, pendulumEngine.b);
             SetSlider(gravitySlider, pendulumEngine.g);
+            SetSlider(massSlider, pendulumEngine.m0);
+            SetSlider(directionSlider,
+                Mathf.Atan2(pendulumEngine.windDirection.z, pendulumEngine.windDirection.x) * Mathf.Rad2Deg);
             SetSlider(initialAngleSlider, pendulumEngine.initialTheta);
             SetSlider(initialOmegaSlider, pendulumEngine.initialOmega);
             SetSlider(numberOfSwingsSlider, pendulumEngine.maxSwings);
@@ -205,6 +225,7 @@ public Button runSimulationButton;
             SetSlider(orificeSlider, fluidEngine.orificeDiameter);
             SetSlider(viscositySlider, fluidEngine.viscosity);
             SetSlider(paintAmountSlider, fluidEngine.initialVolume * 1000f);
+            if (paintEmitter != null) SetSlider(flowRateSlider, paintEmitter.flowRate);
             SetSlider(windSpeedSlider, fluidEngine.windSpeed);
             SetSlider(temperatureSlider, fluidEngine.temperature);
             SetSlider(humiditySlider, fluidEngine.humidity * 100f);
@@ -234,6 +255,7 @@ public Button runSimulationButton;
         Bind(ropeDampingSlider, v => { if (pendulumEngine) pendulumEngine.c_rope = v; });
         Bind(airResistanceSlider, v => { if (pendulumEngine) pendulumEngine.b = v; });
         Bind(gravitySlider, v => { if (pendulumEngine) pendulumEngine.g = v; });
+        Bind(massSlider, v => { if (pendulumEngine) pendulumEngine.m0 = v; });
         Bind(initialAngleSlider, v => { if (pendulumEngine) pendulumEngine.initialTheta = v; });
         Bind(initialOmegaSlider, v => { if (pendulumEngine) pendulumEngine.initialOmega = v; });
         Bind(numberOfSwingsSlider, v => { if (pendulumEngine) pendulumEngine.maxSwings = Mathf.RoundToInt(v); });
@@ -244,12 +266,20 @@ public Button runSimulationButton;
         Bind(orificeSlider, v => { if (fluidEngine) fluidEngine.orificeDiameter = v; });
         Bind(viscositySlider, v => { if (fluidEngine) fluidEngine.viscosity = v; });
         Bind(paintAmountSlider, v => { if (fluidEngine) fluidEngine.initialVolume = v / 1000f; });
+        Bind(flowRateSlider, v => { if (paintEmitter) paintEmitter.flowRate = v; });
 
         // Environment
         Bind(windSpeedSlider, v =>
         {
             if (fluidEngine) fluidEngine.windSpeed = v;
             if (pendulumEngine) pendulumEngine.windSpeed = v;
+        });
+        Bind(directionSlider, v =>
+        {
+            // ponytail: azimuth → horizontal unit vector; single source drives both engines.
+            Vector3 dir = Quaternion.Euler(0f, v, 0f) * Vector3.right;
+            if (fluidEngine) fluidEngine.windDirection = dir;
+            if (pendulumEngine) pendulumEngine.windDirection = dir;
         });
         Bind(temperatureSlider, v => { if (fluidEngine) fluidEngine.temperature = v; });
         Bind(humiditySlider, v => { if (fluidEngine) fluidEngine.humidity = v / 100f; });
@@ -280,7 +310,7 @@ public Button runSimulationButton;
 
         // Buttons
         if (restartButton != null) restartButton.onClick.AddListener(RestartScene);
-if (runSimulationButton != null) runSimulationButton.onClick.AddListener(ToggleSimulation);
+        if (runSimulationButton != null) runSimulationButton.onClick.AddListener(ToggleSimulation);
     }
 
     void Bind(Slider s, System.Action<float> action)
@@ -308,12 +338,15 @@ if (runSimulationButton != null) runSimulationButton.onClick.AddListener(ToggleS
         SetLabel(ropeDampingValueText, ropeDampingSlider, v => $"{v:F1}");
         SetLabel(airResistanceValueText, airResistanceSlider, v => $"{v:F3}");
         SetLabel(gravityValueText, gravitySlider, v => $"{v:F2} m/s²");
+        SetLabel(massValueText, massSlider, v => $"{v:F2} kg");
         SetLabel(initialAngleValueText, initialAngleSlider, v => $"{v:F0}°");
         SetLabel(initialOmegaValueText, initialOmegaSlider, v => $"{v:F2} rad/s");
         SetLabel(orificeValueText, orificeSlider, v => $"{v * 10f:F1} mm");
         SetLabel(viscosityValueText, viscositySlider, v => $"{v:F3}");
         SetLabel(paintAmountValueText, paintAmountSlider, v => $"{v:F1} L");
+        SetLabel(flowRateValueText, flowRateSlider, v => $"{v:F2}");
         SetLabel(windSpeedValueText, windSpeedSlider, v => $"{v:F1} m/s");
+        SetLabel(directionValueText, directionSlider, v => $"{v:F0}°");
         SetLabel(temperatureValueText, temperatureSlider, v => $"{v:F0} °C");
         SetLabel(humidityValueText, humiditySlider, v => $"{v:F0} %");
         SetLabel(tiltValueText, tiltSlider, v => $"{v:F0}°");
@@ -332,13 +365,13 @@ if (runSimulationButton != null) runSimulationButton.onClick.AddListener(ToggleS
     }
 
     void ToggleSimulation()
-{
-    var ctrl = FindObjectOfType<SimulationController>();
-    if (ctrl != null)
-        ctrl.autoRun = !ctrl.autoRun;
-}
+    {
+        var ctrl = FindAnyObjectByType<SimulationController>();
+        if (ctrl != null)
+            ctrl.autoRun = !ctrl.autoRun;
+    }
 
-void RestartScene()
+    void RestartScene()
     {
         UnityEngine.SceneManagement.SceneManager.LoadScene(
             UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
