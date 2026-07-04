@@ -43,6 +43,7 @@
 # Visual Studio cache directory
 .vs/
 .codegraph/
+.superpowers/
 .claude/
 .codex/
 .remember/

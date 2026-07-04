@@ -29,8 +29,8 @@ public class SPHFluidSolver : MonoBehaviour
     public float maxPaintHeight = 0.30f;
     [Tooltip("معامل التفريغ Cd")]
     public float Cd = 0.6f;
-    [Tooltip("قطر فتحة السطل")]
-    public float orificeDiameter = 2f;
+    [Tooltip("قطر فتحة السطل (بوحدات Unity world units) — 0.05 ≈ فتحة متناسبة مع السطل")]
+    public float orificeDiameter = 0.05f;
     [Tooltip("كثافة الطلاء (kg/m³)")]
     public float paintDensity = 1200f;
     [Tooltip("لون الطلاء الحالي")]
@@ -78,6 +78,10 @@ public class SPHFluidSolver : MonoBehaviour
     [Tooltip("أقصى عدد جسيمات تُصدر في فريم واحد")]
     public int   maxSpawnPerFrame = 20;
 
+    [Header("Emission Source (Phase 5)")]
+    [Tooltip("مفعّل: الإصدار الداخلي Torricelli/Bernoulli. معطّل: يُترك الإصدار لـ PaintEmitter الخارجي (flowRate)")]
+    public bool useInternalEmission = true;
+
     // ── Coalescence (Section 2.5.1) ──
     //   When ON, particles within `coalescenceRadius` whose relative speed is below
     //   `maxCoalesceRelSpeed` are merged into one — drop a denser, longer-lived
@@ -108,6 +112,10 @@ public class SPHFluidSolver : MonoBehaviour
     public float   EffectiveViscosity   => viscosity * Mathf.Exp(K_TEMP * (T_REF - temperature));
     public float   HumiditySpreadFactor => 1f + BETA_H * humidity;
     public int     ActiveParticleCount  => particles.Count;
+
+    /// <summary>نصف قطر الفتحة — مصدر واحد لكل البصريات (الفجوة + التيار + القطرات + الانتشار).
+    /// ponytail: one derived property instead of three independent radius fields.</summary>
+    public float OrificeRadius => Mathf.Max(0.001f, orificeDiameter * 0.5f);
 
     private readonly List<SPHParticle> particles = new List<SPHParticle>(1024);
     private readonly List<int> neighborIndices   = new List<int>(128);
@@ -161,7 +169,8 @@ public class SPHFluidSolver : MonoBehaviour
     {
         if (dt <= 0f) return;
 
-        EmitParticles(dt);
+        if (useInternalEmission)
+            EmitParticles(dt);
 
         if (particles.Count == 0) return;
 
@@ -236,9 +245,9 @@ public class SPHFluidSolver : MonoBehaviour
 
         for (int i = 0; i < spawnCount; i++)
         {
-            Vector3 spawnPos = spawnBase + new Vector3(
-                Random.Range(-0.02f, 0.02f), 0f,
-                Random.Range(-0.02f, 0.02f));
+            // ponytail: scatter scales with the same SOT as the visual hole/stream
+            Vector2 jitter = Random.insideUnitCircle * OrificeRadius * 0.9f;
+            Vector3 spawnPos = spawnBase + new Vector3(jitter.x, 0f, jitter.y);
 
             Vector3 windForce = windDirection.normalized * windCoeff * windSpeed;
 

@@ -4,8 +4,7 @@ using UnityEngine.UI;
 [RequireComponent(typeof(RawImage))]
 public class UIPreviewConnector : MonoBehaviour
 {
-    [Tooltip("اربط هنا الـ PaintCanvas Component الموجود على الـ Quad")]
-    public PaintCanvas canvasEngine;   // ← تم التحويل من PaintSurfaceCanvas
+    public PaintCanvas canvasEngine;
     private RawImage previewImage;
 
     void Start()
