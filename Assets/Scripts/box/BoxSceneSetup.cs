@@ -13,7 +13,7 @@ public class BoxSceneSetup : MonoBehaviour
     public static void SetupBoxSPHScene()
     {
         // إنشاء مشهد جديد
-        var newScene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects.NONE, NewSceneMode.Single);
+        var newScene = EditorSceneManager.NewScene(NewSceneMode.Single);
         
         // 1. إنشاء BoxContainer
         GameObject boxContainerGO = new GameObject("BoxContainer");
@@ -68,7 +68,7 @@ public class BoxSceneSetup : MonoBehaviour
         fluidSolver.drawGizmos = false;
         fluidSolver.particlesPerVolumeUnit = 50000f;
         fluidSolver.maxSpawnPerFrame = 20;
-        fluidSolver.useInternalEmission = false; // ⭐ مهم جدا
+        fluidSolver.useInternalEmission = false; // Important: no emitter in box system
         fluidSolver.enableCoalescence = false;
         fluidSolver.coalescenceRadius = 1f;
         fluidSolver.maxCoalesceRelSpeed = 5f;
@@ -146,12 +146,12 @@ public class BoxSceneSetup : MonoBehaviour
         
         if (saved)
         {
-            Debug.Log("✅ Box SPH Scene created and saved to: " + scenePath);
+            Debug.Log("[BoxSceneSetup] Scene created and saved to: " + scenePath);
             EditorSceneManager.OpenScene(scenePath);
         }
         else
         {
-            Debug.LogError("❌ Failed to save Box SPH Scene");
+            Debug.LogError("[BoxSceneSetup] Failed to save scene");
         }
         
         // 9. تحديد الكاميرا ككاميرا رئيسية
