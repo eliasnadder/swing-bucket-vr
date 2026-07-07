@@ -2097,6 +2097,13 @@ MonoBehaviour:
   splashDropletLifetime: 0.25
   splashInitialSpeed: 20
   splashGravity: 300
+  streamTurbulence: 0.15
+  streamTaperAmount: 0.4
+  particleSizeVariation: 0.1
+  velocitySizeFactor: 0.3
+  particleColorVariation: 0.05
+  useStreamCurvature: 1
+  streamCurvatureAmount: 0.3
 --- !u!4 &121860751
 Transform:
   m_ObjectHideFlags: 0
@@ -17711,6 +17718,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LiveDataOverlay
   pendulum: {fileID: 268129422}
   fluidSystem: {fileID: 268129426}
+  bucketBuilder: {fileID: 268129424}
+  paintCanvas: {fileID: 931284153}
   overlayText: {fileID: 109856055}
   updateInterval: 0.1
 --- !u!114 &1603322439

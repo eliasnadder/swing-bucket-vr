@@ -440,8 +440,10 @@ MonoBehaviour:
   wallThickness: 1
   openTop: 1
   wallMaterial: {fileID: 0}
-  innerFaceMaterial: {fileID: 0}
-  showInnerFaces: 0
+  hasDrainHole: 0
+  holeRadius: 0
+  holeLocalOffset: {x: 0, y: 0}
+  spoutLength: 2
 --- !u!114 &577469583
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -456,9 +458,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BoxRotationController
   tiltX: 0
   tiltZ: 0
-  autoRotate: 1
+  autoRotate: 0
   autoAmplitude: 25
-  autoSpeed: 0.6
+  autoSpeed: 10
 --- !u!114 &577469584
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -473,8 +475,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BoxFluidSeeder
   solver: {fileID: 78069595}
   box: {fileID: 577469582}
-  fillRatio: 0.4
-  particleSpacing: 1.5
+  fillRatio: 0.852
+  particleSpacing: 1.2
   jitter: 0.15
   paintColor: {r: 0.85, g: 0.1, b: 0.1, a: 1}
 --- !u!4 &577469585

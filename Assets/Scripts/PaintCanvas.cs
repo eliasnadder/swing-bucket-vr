@@ -104,6 +104,11 @@ public class PaintCanvas : MonoBehaviour
 
     private readonly List<PaintStamp> pendingStamps = new List<PaintStamp>(1024);
 
+    // ── Splat counter ──
+    private int splatCount;
+    /// <summary>Total number of paint splats applied to this canvas since the scene started (or last ClearCanvas).</summary>
+    public int SplatCount => splatCount;
+
     // ── Public API ──
     public Texture2D GetPaintTexture() => paintTexture;
 
@@ -202,6 +207,7 @@ public class PaintCanvas : MonoBehaviour
         if (pixelBuffer == null) return;
         for (int i = 0; i < pixelBuffer.Length; i++)
             pixelBuffer[i] = backgroundColor;
+        splatCount = 0;
         dirty = true;
     }
 
@@ -217,6 +223,7 @@ public class PaintCanvas : MonoBehaviour
             viscosity     = viscosity,
             impactVelocity = impactVelocity
         });
+        splatCount++;
     }
 
     /// <summary>

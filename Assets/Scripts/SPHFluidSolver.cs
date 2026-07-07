@@ -393,7 +393,7 @@ public class SPHFluidSolver : MonoBehaviour
             }
 
             // حذف الجسيمات التي سقطت بعيداً جداً
-            if (particle.position.y < -100f)
+            if (particle.position.y < -500f)
             {
                 particles.RemoveAt(i);
                 i--;
