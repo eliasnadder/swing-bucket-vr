@@ -356,7 +356,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SPHFluidSolver
   smoothingRadius: 8
   particleMass: 0.05
-  restDensity: 2.5
+  restDensity: 1000
   gasConstant: 50
   viscosity: 0.25
   gravity: {x: 0, y: -981, z: 0}
@@ -382,7 +382,7 @@ MonoBehaviour:
   drawGizmos: 0
   particlesPerVolumeUnit: 50000
   maxSpawnPerFrame: 20
-  useInternalEmission: 1
+  useInternalEmission: 0
   enableCoalescence: 0
   coalescenceRadius: 1
   maxCoalesceRelSpeed: 5
