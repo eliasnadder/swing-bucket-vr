@@ -280,8 +280,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BoxSimulationController
   fluidSolver: {fileID: 78069595}
   boundary: {fileID: 78069593}
+  seeder: {fileID: 577469584}
   sphRenderer: {fileID: 78069594}
   autoRun: 1
+  particleRenderSize: 1.5
 --- !u!114 &78069593
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -314,10 +316,10 @@ MonoBehaviour:
   solver: {fileID: 78069595}
   paintEmitter: {fileID: 0}
   initialPoolSize: 512
-  particleSize: 0.03
+  particleSize: 1.5
   particleMaterial: {fileID: 0}
   createMaterialIfMissing: 1
-  showAirStream: 1
+  showAirStream: 0
   streamRadiusMultiplier: 1
   dropletRadiusMultiplier: 1
   maxStreamPoints: 32
@@ -356,7 +358,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SPHFluidSolver
   smoothingRadius: 8
   particleMass: 0.05
-  restDensity: 2.5
+  restDensity: 1000
   gasConstant: 50
   viscosity: 0.25
   gravity: {x: 0, y: -981, z: 0}
@@ -382,7 +384,7 @@ MonoBehaviour:
   drawGizmos: 0
   particlesPerVolumeUnit: 50000
   maxSpawnPerFrame: 20
-  useInternalEmission: 1
+  useInternalEmission: 0
   enableCoalescence: 0
   coalescenceRadius: 1
   maxCoalesceRelSpeed: 5
@@ -439,6 +441,7 @@ MonoBehaviour:
   openTop: 1
   wallMaterial: {fileID: 0}
   innerFaceMaterial: {fileID: 0}
+  showInnerFaces: 0
 --- !u!114 &577469583
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -575,13 +578,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1988227107}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.26042026, y: 0, z: 0, w: 0.9654954}
-  m_LocalPosition: {x: 7.26, y: 25.09, z: -99.3}
+  m_LocalRotation: {x: 0.15643446, y: 0, z: 0, w: 0.98768836}
+  m_LocalPosition: {x: 0, y: 18, z: -55}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 30.19, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 18, y: 0, z: 0}
 --- !u!114 &1988227111
 MonoBehaviour:
   m_ObjectHideFlags: 0

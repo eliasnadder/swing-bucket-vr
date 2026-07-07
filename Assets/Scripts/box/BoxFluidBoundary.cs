@@ -1,10 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// يحسب اصطدام جسيمات SPH بجدران BoxContainer، مع دعم كامل لدوران/إزاحة الصندوق.
-/// الفكرة: نحوّل موضع وسرعة كل جسيم من World Space إلى Local Space الخاص بالصندوق
-/// (حيث الصندوق ثابت ومحاذي للمحاور)، نطبّق الـ clamp/reflect هناك، ثم نرجع النتيجة لـ World Space.
-/// </summary>
 public class BoxFluidBoundary : MonoBehaviour
 {
     [Header("References")]
@@ -12,9 +7,8 @@ public class BoxFluidBoundary : MonoBehaviour
     public BoxContainer box;
 
     [Header("Collision Response")]
-    [Range(0f, 1f)] public float restitution = 0.25f;   // ارتداد عمودي على الجدار
-    [Range(0f, 1f)] public float friction = 0.85f;      // احتكاك موازٍ للجدار
-    [Tooltip("هامش صغير لمنع الجسيمات من الانغراس داخل الجدار")]
+    [Range(0f, 1f)] public float restitution = 0.25f;
+    [Range(0f, 1f)] public float friction = 0.85f;
     public float skin = 0.05f;
 
     public void ResolveContacts()
@@ -25,6 +19,10 @@ public class BoxFluidBoundary : MonoBehaviour
         Matrix4x4 localToWorld = box.transform.localToWorldMatrix;
         Vector3 half = box.HalfExtentsInner - Vector3.one * skin;
 
+        bool hasHole = box.HasDrainHole;
+        float holeR2 = box.HoleRadius * box.HoleRadius;
+        Vector2 holeOffset = box.HoleOffset;
+
         int count = solver.ParticleCount;
         for (int i = 0; i < count; i++)
         {
@@ -34,15 +32,26 @@ public class BoxFluidBoundary : MonoBehaviour
             Vector3 lv = worldToLocal.MultiplyVector(p.velocity);
             bool hit = false;
 
-            // ── المحور X ──
             if (lp.x < -half.x) { lp.x = -half.x; if (lv.x < 0f) { lv.x = -lv.x * restitution; lv.y *= friction; lv.z *= friction; } hit = true; }
             else if (lp.x > half.x) { lp.x = half.x; if (lv.x > 0f) { lv.x = -lv.x * restitution; lv.y *= friction; lv.z *= friction; } hit = true; }
 
-            // ── المحور Y (الأرضية دائمًا صلبة، السقف اختياري) ──
-            if (lp.y < -half.y) { lp.y = -half.y; if (lv.y < 0f) { lv.y = -lv.y * restitution; lv.x *= friction; lv.z *= friction; } hit = true; }
+            // ── الأرضية: تسمح بالمرور عبر فتحة التصريف إن وُجدت ──
+            bool inHole = hasHole &&
+                (lp.x - holeOffset.x) * (lp.x - holeOffset.x) +
+                (lp.z - holeOffset.y) * (lp.z - holeOffset.y) <= holeR2;
+
+            if (lp.y < -half.y)
+            {
+                if (!inHole)
+                {
+                    lp.y = -half.y;
+                    if (lv.y < 0f) { lv.y = -lv.y * restitution; lv.x *= friction; lv.z *= friction; }
+                    hit = true;
+                }
+                // else: داخل الفتحة — الجسيم يسقط ويخرج من الصندوق بحرية
+            }
             else if (!box.openTop && lp.y > half.y) { lp.y = half.y; if (lv.y > 0f) { lv.y = -lv.y * restitution; lv.x *= friction; lv.z *= friction; } hit = true; }
 
-            // ── المحور Z ──
             if (lp.z < -half.z) { lp.z = -half.z; if (lv.z < 0f) { lv.z = -lv.z * restitution; lv.x *= friction; lv.y *= friction; } hit = true; }
             else if (lp.z > half.z) { lp.z = half.z; if (lv.z > 0f) { lv.z = -lv.z * restitution; lv.x *= friction; lv.y *= friction; } hit = true; }
 

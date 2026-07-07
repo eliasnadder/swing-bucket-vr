@@ -11,6 +11,10 @@ public class BoxSimulationController : MonoBehaviour
     public SPHRenderer sphRenderer;
     public bool autoRun = true;
 
+    [Header("Particle Visuals")]
+    [Tooltip("حجم الجسيمة المرئية (بوحدات world) — اضبطها بما يناسب حجم الصندوق")]
+    public float particleRenderSize = 1.5f;
+
     void Awake()
     {
         if (fluidSolver == null) fluidSolver = FindAnyObjectByType<SPHFluidSolver>();
@@ -21,11 +25,15 @@ public class BoxSimulationController : MonoBehaviour
         if (fluidSolver != null)
         {
             fluidSolver.useInternalEmission = false; // لا يوجد فوهة في هذا المشهد
+            fluidSolver.useFull3D = true;            // الصندوق ثلاثي الأبعاد بالكامل
             fluidSolver.enabled = false; // نوقف StepSimulation التلقائي من SPHFluidSolver
         }
 
         if (sphRenderer != null)
+        {
             sphRenderer.showAirStream = false; // لا حاجة لخط الانبعاث هنا
+            sphRenderer.particleSize = particleRenderSize; // حجم يناسب الصندوق الكبير
+        }
     }
 
     void Start()

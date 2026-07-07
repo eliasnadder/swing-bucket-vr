@@ -13,7 +13,7 @@ public class BoxSceneSetup : MonoBehaviour
     public static void SetupBoxSPHScene()
     {
         // إنشاء مشهد جديد
-        var newScene = EditorSceneManager.NewScene(NewSceneMode.Single);
+        var newScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         
         // 1. إنشاء BoxContainer
         GameObject boxContainerGO = new GameObject("BoxContainer");
@@ -48,7 +48,7 @@ public class BoxSceneSetup : MonoBehaviour
         fluidSolver.gravity = new Vector3(0f, -981f, 0f);
         fluidSolver.damping = 0.02f;
         fluidSolver.timeStep = 0.0166667f;
-        fluidSolver.useFull3D = false;
+        fluidSolver.useFull3D = true;
         fluidSolver.depthPlane = 0f;
         fluidSolver.depthDamping = 0.65f;
         fluidSolver.initialVolume = 0.5f;
@@ -77,7 +77,7 @@ public class BoxSceneSetup : MonoBehaviour
         var sphRenderer = sphSystemGO.AddComponent<SPHRenderer>();
         sphRenderer.solver = fluidSolver;
         sphRenderer.initialPoolSize = 512;
-        sphRenderer.particleSize = 0.03f;
+        sphRenderer.particleSize = 1.5f;
         sphRenderer.createMaterialIfMissing = true;
         sphRenderer.showAirStream = false;
         sphRenderer.streamRadiusMultiplier = 1f;
@@ -112,6 +112,7 @@ public class BoxSceneSetup : MonoBehaviour
         simulationController.seeder = seeder;
         simulationController.sphRenderer = sphRenderer;
         simulationController.autoRun = true;
+        simulationController.particleRenderSize = 1.5f;
         
         // 5. ربط المراجع
         seeder.solver = fluidSolver;
@@ -121,8 +122,8 @@ public class BoxSceneSetup : MonoBehaviour
         GameObject cameraGO = new GameObject("Main Camera");
         cameraGO.AddComponent<Camera>();
         cameraGO.AddComponent<AudioListener>();
-        cameraGO.transform.position = new Vector3(0f, 10f, 20f);
-        cameraGO.transform.rotation = Quaternion.Euler(20f, 0f, 0f);
+        cameraGO.transform.position = new Vector3(0f, 18f, -55f);
+        cameraGO.transform.rotation = Quaternion.Euler(18f, 0f, 0f);
         
         Camera camera = cameraGO.GetComponent<Camera>();
         camera.fieldOfView = 60f;
@@ -141,7 +142,7 @@ public class BoxSceneSetup : MonoBehaviour
         lightGO.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
         
         // 8. حفظ المشهد
-        string scenePath = "Assets/Parthenon/BoxSPHDemo.unity";
+        string scenePath = "Assets/Parthenon/Box.unity";
         bool saved = EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), scenePath);
         
         if (saved)
