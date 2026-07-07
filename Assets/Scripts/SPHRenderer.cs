@@ -21,9 +21,9 @@ public class SPHRenderer : MonoBehaviour
     public Material streamMaterial;
 
     [Header("Stream Smoothing")]
-    [Tooltip("نقاط Catmull-Rom بين كل زوج من الركائز — كلما زاد زاد النعومة")]
+    [Tooltip("\u0646\u0642\u0627\u0637 Catmull-Rom \u0628\u064a\u0646 \u0643\u0644 \u0632\u0648\u062c \u0645\u0646 \u0627\u0644\u0631\u0643\u0627\u0626\u0632 \u2014 \u0643\u0644\u0645\u0627 \u0632\u0627\u062f \u0632\u0627\u062f \u0627\u0644\u0646\u0639\u0648\u0645\u0629")]
     public int streamSubdivisions = 6;
-    [Range(0f, 1f), Tooltip("0 = لا تنعيم زماني (يتبع الجسيمات فوراً)، 1 = تجميد. 0.45 يقتل التذبذب بدون أن يتأخر كثيراً")]
+    [Range(0f, 1f), Tooltip("0 = \u0644\u0627 \u062a\u0646\u0639\u064a\u0645 \u0632\u0645\u0627\u0646\u064a (\u064a\u062a\u0628\u0639 \u0627\u0644\u062c\u0633\u064a\u0645\u0627\u062a \u0641\u0648\u0631\u0627\u0643)\u060c 1 = \u062a\u062c\u0645\u064a\u062f. 0.45 \u064a\u0642\u062a\u0644 \u0627\u0644\u062a\u0630\u0628\u0630\u0628 \u0628\u062f\u0648\u0646 \u0623\u0646 \u064a\u062a\u0627\u062e\u0631 \u0643\u062b\u064a\u0631\u0627\u064b")]
     public float streamSmoothing = 0.45f;
 
     private readonly List<ParticleVisual> visuals = new List<ParticleVisual>();
@@ -36,22 +36,22 @@ public class SPHRenderer : MonoBehaviour
     private LineRenderer streamRenderer;
 
     [Header("Paint Level Feedback")]
-    [Tooltip("نسبة الملء (0–1) دون هذا الحد يبدأ الخط بالتضاؤل")]
+    [Tooltip("\u0646\u0633\u0628\u0629 \u0627\u0644\u0645\u0644\u0621 (0\u20131) \u062f\u0648\u0646 \u0647\u0630\u0627 \u0627\u0644\u062d\u062f \u064a\u0628\u062f\u0623 \u0627\u0644\u062e\u0637 \u0628\u0627\u0644\u062a\u0636\u0627\u0621\u0644")]
     [Range(0f, 1f)] public float streamThinBelowFill = 0.15f;
-    [Tooltip("نسبة الملء (0–1) دون هذا الحد يتوقف الخط المستمر ويتحول لقطرات")]
+    [Tooltip("\u0646\u0633\u0628\u0629 \u0627\u0644\u0645\u0644\u0621 (0\u20131) \u062f\u0648\u0646 \u0647\u0630\u0627 \u0627\u0644\u062d\u062f \u064a\u062a\u0648\u0642\u0641 \u0627\u0644\u062e\u0637 \u0627\u0644\u0645\u0633\u062a\u0645\u0631 \u0648\u064a\u062a\u062d\u0648\u0644 \u0644\u0642\u0637\u0631\u0627\u062a")]
     [Range(0f, 1f)] public float streamStopBelowFill = 0.03f;
-    [Tooltip("أدنى عرض للخط كنسبة من العرض الكامل (عند حافة التحول للقطرات)")]
+    [Tooltip("\u0623\u062f\u0646\u0649 \u0639\u0631\u0636 \u0644\u0644\u062e\u0637 \u0643\u0646\u0633\u0628\u0629 \u0645\u0646 \u0627\u0644\u0639\u0631\u0636 \u0627\u0644\u0643\u0627\u0645\u0644 (\u0639\u0646\u062f \u062d\u0627\u0641\u0629 \u0627\u0644\u062a\u062d\u0648\u0644 \u0644\u0644\u0642\u0637\u0631\u0627\u062a)")]
     [Range(0f, 1f)] public float streamMinWidthRatio = 0.15f;
-    [Tooltip("حجم قطرة التقطر كنسبة من نصف قطر الفتحة")]
+    [Tooltip("\u062d\u062c\u0645 \u0642\u0637\u0631\u0629 \u0627\u0644\u062a\u0642\u0637\u0631 \u0643\u0646\u0633\u0628\u0629 \u0645\u0646 \u0646\u0635\u0641 \u0642\u0637\u0631 \u0627\u0644\u0641\u062a\u062d\u0629")]
     [Range(0.1f, 3f)] public float dripRadiusRatio = 0.6f;
-    [Tooltip("الفترة الزمنية بين كل قطرة (ثانية) عند حد التقطر")]
+    [Tooltip("\u0627\u0644\u0641\u062a\u0631\u0629 \u0627\u0644\u0632\u0645\u0646\u064a\u0629 \u0628\u064a\u0646 \u0643\u0644 \u0642\u0637\u0631\u0629 (\u062b\u0627\u0646\u064a\u0629) \u0639\u0646\u062f \u062d\u062f \u0627\u0644\u062a\u0642\u0637\u0631")]
     public float dripInterval = 0.35f;
-    [Tooltip("حياة القطرة (ثانية)")]
+    [Tooltip("\u062d\u064a\u0627\u0629 \u0627\u0644\u0642\u0637\u0631\u0629 (\u062b\u0627\u0646\u064a\u0629)")]
     public float dripLifetime = 1.2f;
-    [Tooltip("سرعة القطرة الأولية للأسفل")]
+    [Tooltip("\u0633\u0631\u0639\u0629 \u0627\u0644\u0642\u0637\u0631\u0629 \u0627\u0644\u0623\u0648\u0644\u064a\u0629 \u0644\u0644\u0623\u0633\u0644")]
     public float dripInitialSpeed = 1.5f;
 
-    // فلاج يُفعَّل بعد أول فريم فيه solver.PaintHeight > 0 — يمنع القطرات من الظهور قبل أن يبدأ النظام
+    // \u0641\u0644\u0627\u062c \u064a\u064f\u0641\u0639\u064e\u0651\u0644 \u0628\u0639\u062f \u0623\u0648\u0644 \u0641\u0631\u064a\u0645 \u0641\u064a\u0647 solver.PaintHeight > 0 \u2014 \u064a\u0645\u0646\u0639 \u0627\u0644\u0642\u0637\u0631\u0627\u062a \u0645\u0646 \u0627\u0644\u0648\u0647\u0648\u0631 \u0642\u0628\u0644 \u0623\u0646 \u064a\u0628\u062f\u0623 \u0627\u0644\u0646\u0638\u0627\u0645
     private bool paintSystemReady;
 
     private float dripTimer;
@@ -61,10 +61,26 @@ public class SPHRenderer : MonoBehaviour
     [Header("Canvas Splash (transient, cosmetic)")]
     public int splashPoolSize = 48;
     public float splashDropletLifetime = 0.25f;
-    public float splashInitialSpeed = 20f;   // world units/s — cosmetic
+    public float splashInitialSpeed = 20f;   // world units/s \u2014 cosmetic
     public float splashGravity = 300f;  // cosmetic, snappier than world g
     private readonly List<SplashDroplet> splashPool = new List<SplashDroplet>();
     private int splashCursor;
+
+    [Header("Enhanced Realism Settings")]
+    [Tooltip("Amount of natural wobble/perturbation in the stream (0 = perfectly smooth, 1 = very turbulent)")]
+    [Range(0f, 1f)] public float streamTurbulence = 0.15f;
+    [Tooltip("How much the stream tapers/narrows as it falls (0 = no tapering, 1 = strong tapering)")]
+    [Range(0f, 1f)] public float streamTaperAmount = 0.4f;
+    [Tooltip("How much particles vary in size for a more organic look")]
+    [Range(0f, 0.5f)] public float particleSizeVariation = 0.1f;
+    [Tooltip("Multiplier for particle size based on velocity (faster particles appear slightly stretched)")]
+    [Range(0f, 2f)] public float velocitySizeFactor = 0.3f;
+    [Tooltip("Adds subtle color variation to particles for depth")]
+    [Range(0f, 0.3f)] public float particleColorVariation = 0.05f;
+    [Tooltip("Stream curvature based on bucket swing direction")]
+    public bool useStreamCurvature = true;
+    [Tooltip("How much the stream bends with bucket movement")]
+    [Range(0f, 1f)] public float streamCurvatureAmount = 0.3f;
 
     private class ParticleVisual
     {
@@ -128,20 +144,20 @@ public class SPHRenderer : MonoBehaviour
         UpdateSplash();
         UpdateDrips();
 
-        // تقطّر مستقل عن وجود الجسيمات — يعمل حتى لو توقفت الجسيمات عن الخروج
+        // \u062a\u0642\u0637\u0651\u0631 \u0645\u0633\u062a\u0642\u0644 \u0639\u0646 \u0648\u062c\u0648\u062f \u0627\u0644\u062c\u0633\u064a\u0645\u0627\u062a \u2014 \u064a\u0639\u0645\u0644 \u062d\u062a\u0649 \u0644\u0648 \u062a\u0648\u0642\u0641\u062a \u0627\u0644\u062c\u0633\u064e\u0645\u0627\u062a \u0639\u0646 \u0627\u0644\u062e\u0644\u0648\u062c
         if (showAirStream && solver != null && paintEmitter != null)
         {
             float fillRatio = solver.maxPaintHeight > 0f
                 ? Mathf.Clamp01(solver.PaintHeight / solver.maxPaintHeight)
                 : 0f;
 
-            // انتظر حتى يُسجّل النظام ملءً حقيقياً قبل تفعيل القطرات
-            // هذا يمنع القطرات من الظهور في أول فريم قبل أن يبدأ SPHFluidSolver.Start()
+            // \u0627\u0646\u062a\u0638\u0631 \u062d\u062a\u0649 \u064e\u0647\u0644 \u0627\u0644\u0646\u0638\u0627\u0645 \u0645\u0644\u0621\u064b \u062d\u0642\u064a\u0642\u064a\u0627\u064b \u0642\u0628\u0644 \u062a\u0641\u0639\u064a\u0644 \u0627\u0644\u0642\u0637\u0631\u0627\u062a
+            // \u0647\u0630\u0627 \u064a\u0645\u0646\u0639 \u0627\u0644\u0642\u0637\u0631\u0627\u062a \u0645\u0646 \u0627\u0644\u0648\u0647\u0648\u0631 \u0641\u064a \u0623\u0648\u0644 \u0641\u0631\u064e\u0645\u0627\u062a \u0642\u0628\u0644 \u0623\u0646 \u064a\u0628\u062f\u0623 SPHFluidSolver.Start()
             if (!paintSystemReady)
             {
                 if (fillRatio > streamThinBelowFill)
                     paintSystemReady = true;
-                return; // لا قطرات حتى يثبت النظام على قيمة ملء معقولة
+                return; // \u0644\u0627 \u0642\u0637\u0631\u0627\u062a \u062d\u062a\u0649 \u064a\u062b\u0628\u062a \u0627\u0644\u0646\u0638\u0627\u0645 \u0639\u0644\u0649 \u0642\u064a\u0645\u0629 \u0645\u0644\u0621 \u0645\u0639\u0642\u0648\u0644\u0629
             }
 
             UpdateDripEmission(fillRatio);
@@ -159,6 +175,13 @@ public class SPHRenderer : MonoBehaviour
         float dropletDiameter = GetHoleRadius() * 2f * Mathf.Max(0.01f, dropletRadiusMultiplier);
         float visualDiameter = Mathf.Max(particleSize, dropletDiameter);
 
+        // Get bucket velocity for motion-based effects
+        Vector3 bucketVelocity = Vector3.zero;
+        if (paintEmitter != null && paintEmitter.bucket != null)
+        {
+            bucketVelocity = paintEmitter.bucket.BucketVelocity;
+        }
+
         for (int i = 0; i < activeCount; i++)
         {
             SPHParticle particle = solver.GetParticle(i);
@@ -167,12 +190,37 @@ public class SPHRenderer : MonoBehaviour
             if (!visual.gameObject.activeSelf)
                 visual.gameObject.SetActive(true);
 
+            // Calculate particle scale with variations for realism
+            float particleScale = visualDiameter;
+            
+            // Add random size variation for organic look
+            if (particleSizeVariation > 0f)
+            {
+                float variation = (Hash(i, frameCount) * 2f - 1f) * particleSizeVariation;
+                particleScale *= (1f + variation);
+            }
+            
+            // Add velocity-based scaling (faster particles appear slightly stretched in direction of motion)
+            if (velocitySizeFactor > 0f && particle.velocity.magnitude > 0.1f)
+            {
+                float speedFactor = Mathf.Clamp01(particle.velocity.magnitude / 5f);
+                particleScale *= (1f + speedFactor * velocitySizeFactor);
+            }
+
             visual.gameObject.transform.position = particle.position;
-            visual.gameObject.transform.localScale = Vector3.one * visualDiameter;
+            visual.gameObject.transform.localScale = Vector3.one * particleScale;
+
+            // Add subtle color variation for depth
+            Color finalColor = particle.color;
+            if (particleColorVariation > 0f)
+            {
+                float colorOffset = (Hash(i * 3, frameCount) * 2f - 1f) * particleColorVariation;
+                finalColor = Color.Lerp(particle.color, Color.white, colorOffset);
+            }
 
             visual.block.Clear();
-            visual.block.SetColor("_BaseColor", particle.color);
-            visual.block.SetColor("_Color", particle.color);
+            visual.block.SetColor("_BaseColor", finalColor);
+            visual.block.SetColor("_Color", finalColor);
             visual.renderer.SetPropertyBlock(visual.block);
         }
 
@@ -182,10 +230,10 @@ public class SPHRenderer : MonoBehaviour
                 visuals[i].gameObject.SetActive(false);
         }
 
-        RenderAirStream(activeCount);
+        RenderAirStream(activeCount, bucketVelocity);
     }
 
-    private void RenderAirStream(int activeCount)
+    private void RenderAirStream(int activeCount, Vector3 bucketVelocity)
     {
         if (!showAirStream || streamRenderer == null || paintEmitter == null)
         {
@@ -193,27 +241,27 @@ public class SPHRenderer : MonoBehaviour
             return;
         }
 
-        // ── نسبة الملء: مصدر الحقيقة هو solver.PaintHeight / maxPaintHeight ──
+        // \u2500\u2500 \u0646\u0633\u0628\u0629 \u0627\u0644\u0645\u0644\u0621: \u0645\u0635\u062f\u0631 \u0627\u0644\u062d\u0642\u064a\u0642\u0629 \u0647\u0648 solver.PaintHeight / maxPaintHeight \u2500\u2500
         float fillRatio = 1f;
         if (solver != null && solver.maxPaintHeight > 0f)
             fillRatio = Mathf.Clamp01(solver.PaintHeight / solver.maxPaintHeight);
 
-        // إذا لم يُهيّأ النظام بعد (أول فريمات)، افترض ملء كامل لتجنب ظهور قطرات خاطئ
+        // \u0625\u0630\u0627 \u0644\u0645 \u064e\u0647\u064e\u0647\u064a\u0651\u0623 \u0627\u0644\u0646\u0638\u0627\u0645 \u0628\u0639\u062f (\u0623\u0648\u0644 \u0641\u0631\u064e\u0645\u0627\u062a)\u060c \u0627\u0641\u062a\u0636 \u0645\u0644\u0621 \u0643\u0627\u0645\u0644 \u0644\u062a\u062c\u0646\u0628 \u0638\u0647\u0648\u0631 \u0642\u0637\u0631\u0627\u062a \u062e\u0627\u0637\u0626
         if (!paintSystemReady)
             fillRatio = 1f;
 
-        // ── الخيط يظهر فقط إذا كان الدلو يُصدر طلاءً فعلاً ──
-        // نتحقق من معدل التدفق: إذا كان صفراً (دلو متوقف أو فارغ) نخفي الخيط
-        // حتى لو ما زالت توجد جسيمات في الهواء من الإصدار السابق
+        // \u2500\u2500 \u0627\u0644\u062e\u064e\u064a\u0637 \u064e\u0648\u0647\u0631 \u0641\u0642\u0637 \u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u062f\u0644\u0648 \u064e\u0647\u0648 \u0637\u0644\u0627\u0621\u064b \u0641\u0639\u0644\u0627\u064b \u2500\u2500
+        // \u0646\u062a\u062d\u0642\u0642 \u0645\u0646 \u0645\u0639\u062f\u0644 \u0627\u0644\u062a\u062f\u0641\u0642: \u0625\u0630\u0627 \u0643\u0627\u0646 \u0635\u0641\u0631\u0627\u064b (\u062f\u0644\u0648 \u0645\u062a\u0648\u0642\u0641 \u0623\u0648 \u0641\u0627\u0631\u063a) \u0646\u062e\u0644\u064a \u0627\u0644\u062e\u064e\u064a\u0637
+        // \u062d\u062a\u0649 \u0644\u0648 \u0645\u0627 \u0632\u0627\u0644\u062a \u062a\u0648\u062c\u062f \u062c\u0633\u064e\u0645\u0627\u062a \u0641\u064e\u0645 \u0627\u0644\u0625\u0635\u062f\u0627\u0631 \u0627\u0644\u0633\u0627\u0628\u0642
         float flowRate = solver != null ? solver.CurrentFlowRate : 0f;
 
-        // معيار احتياطي: سرعة الدلو نفسه — عندما يتخامد ويتوقف تصبح السرعة ≈ 0
-        // هذا يعمل حتى مع PaintEmitter الخارجي الذي لا يحدّث CurrentFlowRate
+        // \u0645\u0639\u064e\u064e\u0627\u064a\u0627\u0631 \u0627\u062d\u062a\u064e\u064e\u0627\u0637\u064e\u064a: \u0633\u0631\u0639\u0629 \u0627\u0644\u062f\u0644\u0648 \u0646\u0641\u0633\u0647 \u2014 \u0639\u0646\u062f\u0645\u0627 \u064e\u064e\u064a\u062a\u062e\u0627\u0645\u062f \u0648\u064e\u064e\u064a\u062a\u0648\u0642\u0641 \u062a\u0635\u0628\u062d \u0627\u0644\u0633\u064e\u064e\u0639\u0629 \u2248 0
+        // \u0647\u0630\u0627 \u064e\u064e\u064e\u0639\u0645\u0644 \u062d\u062a\u0649 \u0645\u0639 PaintEmitter \u0627\u0644\u062e\u0627\u0631\u062c\u064e \u0627\u0644\u0630\u064e \u0644\u0627 \u064e\u064e\u064e\u062d\u062f\u0651\u062b CurrentFlowRate
         bool bucketMoving = true;
         if (paintEmitter != null && paintEmitter.bucket != null)
         {
             float bucketSpeed = paintEmitter.bucket.BucketVelocity.magnitude;
-            // عتبة منخفضة جداً (0.5 cm/s بوحدات Unity) — الدلو الساكن تماماً أقل من هذا
+            // \u0639\u062a\u0628\u0629 \u0645\u0646\u062e\u0641\u0636\u0629 \u062c\u064e\u064e\u064e\u062f\u064b (0.5 cm/s \u0628\u0648\u062d\u062f\u0627\u062a Unity) \u2014 \u0627\u0644\u062f\u0644\u0648 \u0627\u0644\u0633\u0627\u0643\u0646 \u062a\u0645\u0627\u0645\u0627\u064b \u0623\u0642\u0644 \u0645\u0646 \u0647\u0630\u0627
             bucketMoving = bucketSpeed > 0.5f;
         }
 
@@ -229,7 +277,7 @@ public class SPHRenderer : MonoBehaviour
         float holeRadius = GetHoleRadius();
         float maxY = holePosition.y + holeRadius * 2f;
 
-        // ── gather anchors: the hole, then every in-flight particle below it ──
+        // \u2500\u2500 gather anchors: the hole, then every in-flight particle below it \u2500\u2500
         streamPoints.Clear();
         streamPoints.Add(holePosition);
         for (int i = 0; i < activeCount; i++)
@@ -240,7 +288,7 @@ public class SPHRenderer : MonoBehaviour
         }
         if (streamPoints.Count < 2) { SetStreamVisible(false); return; }
 
-        // top → bottom so the alpha gradient reads vertically (top = at the bucket)
+        // top \u2192 bottom so the alpha gradient reads vertically (top = at the bucket)
         streamPoints.Sort((a, b) => b.y.CompareTo(a.y));
         int pointLimit = Mathf.Max(2, maxStreamPoints);
         if (streamPoints.Count > pointLimit)
@@ -253,31 +301,51 @@ public class SPHRenderer : MonoBehaviour
             streamPoints.RemoveRange(pointLimit, streamPoints.Count - pointLimit);
         }
 
-        // ── smooth: Catmull-Rom through the anchors, then a light temporal lerp ──
+        // Add natural turbulence/wobble to the stream for realism
+        if (streamTurbulence > 0f)
+        {
+            AddStreamTurbulence(streamPoints, bucketVelocity);
+        }
+
+        // Add stream curvature based on bucket movement
+        if (useStreamCurvature && streamCurvatureAmount > 0f && bucketVelocity.magnitude > 0.1f)
+        {
+            AddStreamCurvature(streamPoints, bucketVelocity);
+        }
+
+        // \u2500\u2500 smooth: Catmull-Rom through the anchors, then a light temporal lerp \u2500\u2500
         BuildSmoothPath(streamPoints, targetPath, Mathf.Max(1, streamSubdivisions));
         TemporalSmooth(targetPath, streamSmoothing);
 
-        // النقطة الأولى (فتحة السطل) لازم تكون دقيقة دايماً، بدون lag
+        // \u0627\u0644\u0646\u0642\u0637\u0629 \u0627\u0644\u0623\u0648\u0644\u0649 (\u0641\u062a\u062d\u0629 \u0627\u0644\u0633\u0644) \u0644\u0627\u0632\u0645 \u062a\u0643\u0648\u0646 \u062f\u0642\u064a\u0642\u0629 \u062f\u0627\u064a\u0645\u0627\u064b \u0642\u0628\u0644 \u0627\u0644\u062e\u0644\u0648\u062c
         if (smoothedPath.Count > 0 && targetPath.Count > 0)
             smoothedPath[0] = targetPath[0];
 
-        // ── عرض الخط يتناسب مع نسبة الملء ──
-        // فوق streamThinBelowFill: العرض الكامل
-        // بين streamStopBelowFill و streamThinBelowFill: يتضاءل حتى streamMinWidthRatio
+        // \u2500\u2500 \u0639\u0631\u0636 \u0627\u0644\u062e\u0637 \u064e\u064e\u064e\u0627\u062a\u064e\u064e\u064e \u0645\u0639 \u0646\u0633\u0628\u0629 \u0627\u0644\u0645\u0644\u0621 \u2500\u2500
+        // \u0641\u0648\u0642 streamThinBelowFill: \u0627\u0644\u0639\u0631\u0636 \u0627\u0644\u0643\u0627\u0645\u0644
+        // \u0628\u064e\u064e\u064e\u0646 streamStopBelowFill \u0648 streamThinBelowFill: \u064a\u062a\u0636\u0627\u0621\u0644 \u062d\u062a\u0649 streamMinWidthRatio
         float widthT = Mathf.InverseLerp(streamStopBelowFill, streamThinBelowFill, fillRatio);
         float widthScale = Mathf.Lerp(streamMinWidthRatio, 1f, widthT);
 
         float baseDiameter = holeRadius * 2f * Mathf.Max(0.01f, streamRadiusMultiplier);
-        float streamDiameter = baseDiameter * widthScale;
+        
+        // Apply tapering: stream narrows as it falls
+        if (streamTaperAmount > 0f && smoothedPath.Count > 1)
+        {
+            ApplyStreamTaper(smoothedPath, baseDiameter, widthScale);
+        }
+        else
+        {
+            float streamDiameter = baseDiameter * widthScale;
+            streamRenderer.startWidth = streamDiameter;
+            streamRenderer.endWidth = streamDiameter * 0.7f;
+        }
 
-        // الشفافية أيضاً تتضاؤل مع نقصان الملء
+        // \u0627\u0644\u0633\u0641\u0627\u0621\u064e\u064e\u064e\u0629 \u0623\u064e\u064e\u064e\u064a\u0636\u0627\u064b \u062a\u062a\u0636\u0627\u0621\u0644 \u0645\u0639 \u0646\u0642\u0635\u0627\u0646 \u0627\u0644\u0645\u0644\u0621
         float alphaTop = Mathf.Lerp(0.2f, 0.95f, widthT);
         float alphaBot = Mathf.Lerp(0.1f, 0.55f, widthT);
 
         Color streamColor = GetStreamColor();
-
-        streamRenderer.startWidth = streamDiameter;
-        streamRenderer.endWidth = streamDiameter * 0.7f;
 
         Gradient gradient = new Gradient();
         gradient.SetKeys(
@@ -299,14 +367,91 @@ public class SPHRenderer : MonoBehaviour
         SetStreamVisible(true);
     }
 
-    // ── تقطّر تدريجي: يُصدر قطرات متقطعة بدل الخط عند الحد الأدنى ──
+    // Add natural turbulence/wobble to the stream
+    private void AddStreamTurbulence(List<Vector3> points, Vector3 bucketVelocity)
+    {
+        if (points.Count < 2) return;
+        
+        float time = Time.time;
+        float turbulenceScale = streamTurbulence * 0.02f;
+        
+        for (int i = 1; i < points.Count; i++)
+        {
+            // Calculate turbulence offset based on position and time
+            float t = (float)i / (points.Count - 1);
+            float noiseX = Mathf.PerlinNoise(time * 0.5f, i * 0.3f) * 2f - 1f;
+            float noiseZ = Mathf.PerlinNoise(time * 0.5f + 100f, i * 0.3f) * 2f - 1f;
+            
+            // Apply turbulence perpendicular to stream direction
+            Vector3 streamDir = (points[i] - points[i-1]).normalized;
+            Vector3 perpendicular = new Vector3(-streamDir.z, 0, streamDir.x).normalized;
+            Vector3 turbulenceOffset = (perpendicular * noiseX + Vector3.Cross(streamDir, perpendicular) * noiseZ) * turbulenceScale;
+            
+            points[i] += turbulenceOffset;
+        }
+    }
+
+    // Add curvature to the stream based on bucket movement
+    private void AddStreamCurvature(List<Vector3> points, Vector3 bucketVelocity)
+    {
+        if (points.Count < 2) return;
+        
+        // Project velocity to horizontal plane
+        Vector3 horizontalVel = Vector3.ProjectOnPlane(bucketVelocity, Vector3.up);
+        if (horizontalVel.magnitude < 0.1f) return;
+        
+        horizontalVel.Normalize();
+        
+        for (int i = 1; i < points.Count; i++)
+        {
+            float t = (float)i / (points.Count - 1);
+            float curveAmount = streamCurvatureAmount * t * (1f - t) * 0.5f;
+            
+            // Curve the stream in the direction of bucket movement
+            Vector3 curveOffset = horizontalVel * curveAmount * 0.1f;
+            points[i] += curveOffset;
+        }
+    }
+
+    // Apply tapering effect to the stream (narrows as it falls)
+    private void ApplyStreamTaper(List<Vector3> path, float baseDiameter, float widthScale)
+    {
+        if (path.Count < 2) return;
+        
+        // Calculate widths for each segment
+        float[] widths = new float[path.Count];
+        
+        for (int i = 0; i < path.Count; i++)
+        {
+            float t = (float)i / (path.Count - 1);
+            // Taper: wider at top, narrower at bottom
+            float taper = 1f - t * streamTaperAmount;
+            widths[i] = baseDiameter * widthScale * taper;
+        }
+        
+        // Apply widths to line renderer
+        streamRenderer.widthMultiplier = 1f;
+        streamRenderer.widthCurve = new AnimationCurve();
+        
+        for (int i = 0; i < path.Count; i++)
+        {
+            float normalizedTime = (float)i / (path.Count - 1);
+            streamRenderer.widthCurve.AddKey(normalizedTime, widths[i] / baseDiameter);
+        }
+        
+        // Set start and end widths (fallback for older Unity versions)
+        streamRenderer.startWidth = widths[0];
+        streamRenderer.endWidth = widths[path.Count - 1] * 0.7f;
+    }
+
+    // \u2500\u2500 \u062a\u0642\u0637\u0651\u0631 \u062a\u062f\u0631\u064e\u064e\u064e\u062c\u064e\u064e\u064e: \u064e\u064e\u064e\u064e\u064e\u064e\u0627\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u062f \u0645\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u062c\u0631 \u0645\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u0627\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u062f \u0637\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e
     private void UpdateDripEmission(float fillRatio)
     {
-        // فقط في المنطقة بين الإيقاف الكلي وحد التضاؤل
+        // \u0641\u0648\u0642 \u0641\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u062f \u0627\u0644\u0645\u0644\u0621 \u0643\u0644\u0645\u0627 \u0643\u0644\u0645\u0627 \u0642\u0644\u0651 \u0627\u0644\u062d\u0642\u064e\u064e\u064e\u064e\u064e\u064e
         if (fillRatio > streamThinBelowFill || fillRatio <= 0f || paintEmitter == null)
             return;
 
-        // كلما قلّ الملء كلما قلّ معدل القطرات
+        // \u0643\u0644\u0645\u0627 \u0642\u0644\u0651 \u0627\u0644\u0645\u0644\u0621 \u0643\u0644\u0645\u0627 \u0642\u0644\u0651 \u0645\u0639\u062f\u0644 \u0627\u0644\u0642\u0637\u0631\u0627\u062a
         float dripRate = Mathf.Lerp(0f, 1f / Mathf.Max(0.05f, dripInterval),
                                     Mathf.InverseLerp(0f, streamThinBelowFill, fillRatio));
 
@@ -327,7 +472,7 @@ public class SPHRenderer : MonoBehaviour
         float r = GetHoleRadius() * dripRadiusRatio;
         Color c = GetStreamColor();
 
-        // قطرة تسقط من الفتحة مباشرة مع رجّة صغيرة
+        // \u0642\u0637\u0631\u0629 \u062a\u0633\u0642\u0637 \u0645\u0646 \u0627\u0644\u0641\u062a\u062d\u0629 \u0648\u0627\u0634\u0631\u0629 \u0645\u0639 \u0631\u062c\u0651\u0629 \u0635\u063e\u064e\u064e\u064e\u0629
         Vector3 pos = paintEmitter.GetHoleWorldPosition();
         Vector3 jitter = new Vector3(
             Random.Range(-r * 0.5f, r * 0.5f),
@@ -384,7 +529,7 @@ public class SPHRenderer : MonoBehaviour
         if (smoothedPath.Count != target.Count)
         {
             smoothedPath.Clear();
-            smoothedPath.AddRange(target); // size changed (particle count changed) — snap, don't smear
+            smoothedPath.AddRange(target); // size changed (particle count changed) \u2014 snap, don't smear
             return;
         }
         for (int i = 0; i < target.Count; i++)
@@ -393,7 +538,7 @@ public class SPHRenderer : MonoBehaviour
 
     private float GetHoleRadius()
     {
-        // ponytail: single source of truth — solver first, paintEmitter as a fallback only
+        // ponytail: single source of truth \u2014 solver first, paintEmitter as a fallback only
         if (solver != null)
             return solver.OrificeRadius;
 
@@ -412,10 +557,24 @@ public class SPHRenderer : MonoBehaviour
         return Color.red;
     }
 
+    // Simple hash function for deterministic randomness
+    private static int frameCount => Time.frameCount;
+    private static float Hash(int seed, int frame)
+    {
+        unchecked
+        {
+            int hash = seed * 1103515245 + frame * 12345;
+            hash = (hash ^ (hash >> 16)) * 0x45d9f3b;
+            hash = (hash ^ (hash >> 16)) * 0x45d9f3b;
+            hash = hash ^ (hash >> 16);
+            return (float)(hash % 10000) / 10000f;
+        }
+    }
+
     [ContextMenu("Verify SOT (color + radius)")]
     private void VerifySOT()
     {
-        if (solver == null) { Debug.LogError("[VerifySOT] solver is null — cannot verify SOTs."); return; }
+        if (solver == null) { Debug.LogError("[VerifySOT] solver is null \u2014 cannot verify SOTs."); return; }
 
         float r = GetHoleRadius();
         bool radiusOk = Mathf.Approximately(r, solver.OrificeRadius);
@@ -426,9 +585,9 @@ public class SPHRenderer : MonoBehaviour
         Debug.Log($"[VerifySOT] color: renderer=({cc.r:F2},{cc.g:F2},{cc.b:F2}) solver=({solver.currentPaintColor.r:F2},{solver.currentPaintColor.g:F2},{solver.currentPaintColor.b:F2}) match={colorOk}");
 
         if (radiusOk && colorOk)
-            Debug.Log("[VerifySOT] OK — single source of truth consistent.");
+            Debug.Log("[VerifySOT] OK \u2014 single source of truth consistent.");
         else
-            Debug.LogWarning("[VerifySOT] MISMATCH — renderer is not reading the solver SOTs.");
+            Debug.LogWarning("[VerifySOT] MISMATCH \u2014 renderer is not reading the solver SOTs.");
     }
 
     private void EnsureStreamRenderer()
@@ -481,7 +640,7 @@ public class SPHRenderer : MonoBehaviour
         }
     }
 
-    // أضف هاد الدالة الجديدة
+    // \u0623\u0636\u0641 \u0647\u0627\u062f \u0627\u0644\u062f\u0627\u0644\u0629 \u0627\u0644\u062c\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u062f\u064e\u064e\u064e\u064e
     private Material CreateStreamMaterial()
     {
         Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
@@ -565,9 +724,9 @@ public class SPHRenderer : MonoBehaviour
         return mesh;
     }
 
-    // ── Canvas splash: a short ring of cosmetic droplets spawned on impact, decoupled
+    // \u2500\u2500 Canvas splash: a short ring of cosmetic droplets spawned on impact, decoupled
     //    from the persistent PaintCanvas texture-splat. Fades by shrinking (no transparency
-    //    needed — reuses the existing opaque particle material). Recycled via a pool.
+    //    needed \u2014 reuses the existing opaque particle material). Recycled via a pool.
     private void EnsureSplashPool(int count)
     {
         while (splashPool.Count < count)
@@ -595,13 +754,13 @@ public class SPHRenderer : MonoBehaviour
 
         // count scales with downward impact speed (reuses PaintCanvas's 3 m/s eye-of-the-storm threshold)
         int count = Mathf.Clamp(6 + Mathf.FloorToInt(Mathf.Abs(impactVelocity.y) / 3f), 6, 16);
-        float baseRadius = GetHoleRadius() * 0.4f; // ponytail: ~0.4× the stream radius for splash droplets
+        float baseRadius = GetHoleRadius() * 0.4f; // ponytail: ~0.4\u00d7 the stream radius for splash droplets
         Color c = color;
 
         for (int i = 0; i < count; i++)
         {
             SplashDroplet d = AcquireSplashDroplet();
-            if (d == null) break; // pool saturated this frame — spawn fewer, fine
+            if (d == null) break; // pool saturated this frame \u2014 spawn fewer, fine
 
             // ring in the canvas plane (XZ for the default horizontal canvas) + a slight upward bounce
             float angle = (i / (float)count) * Mathf.PI * 2f + Random.Range(-0.2f, 0.2f);
@@ -636,7 +795,7 @@ public class SPHRenderer : MonoBehaviour
                 return splashPool[idx];
             }
         }
-        return null; // all active — caller skips (ring is just smaller this frame)
+        return null; // all active \u2014 caller skips (ring is just smaller this frame)
     }
 
     private void UpdateSplash()
@@ -660,14 +819,14 @@ public class SPHRenderer : MonoBehaviour
             Vector3 pos = d.gameObject.transform.position + d.velocity * dt;
             d.gameObject.transform.position = pos;
 
-            // fade by shrinking (opaque material — no blend mode required)
+            // fade by shrinking (opaque material \u2014 no blend mode required)
             float t = d.age / d.lifetime;
             float scale = d.baseRadius * 2f * (1f - t);
             d.gameObject.transform.localScale = Vector3.one * Mathf.Max(0f, scale);
         }
     }
 
-    // ── Drip pool: قطرات متقطعة تسقط من الفتحة عند نفاد الطلاء تقريباً ──
+    // \u2500\u2500 Drip pool: \u0642\u0637\u0631\u0627\u062a \u0645\u062a\u0642\u0637\u0639\u0629 \u062a\u0633\u0642\u0637 \u0645\u0646 \u0627\u0644\u0641\u062a\u062d\u0629 \u0639\u0646\u062f \u0644\u0646\u0641\u0627\u062f \u0627\u0644\u0637\u0644\u0627\u0621 \u062a\u0642\u0644\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u062c\u064e\u064e\u064e\u064e\u062f \u2500\u2500
     private void EnsureDripPool(int count)
     {
         while (dripPool.Count < count)
@@ -721,12 +880,12 @@ public class SPHRenderer : MonoBehaviour
                 continue;
             }
 
-            // جاذبية واقعية للقطرة + تناقص الحجم مع الوقت لتوحي بالتبخر/الاندماج
+            // \u062c\u0627\u0630\u0628\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u0629 \u0648\u0627\u0642\u0639\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u0629 \u0644\u0644\u0642\u0637\u0631\u0629 + \u062a\u0646\u0627\u0642\u0635 \u0627\u0644\u062d\u062c\u0645 \u0645\u0639 \u0627\u0644\u0648\u0642\u062a \u0644\u062a\u0648\u062d\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u062f\u064e\u064e\u064e\u064e\u062f\u064e\u064e\u064e\u062f\u062f
             d.velocity += Vector3.down * (splashGravity * 0.3f) * dt;
             d.gameObject.transform.position += d.velocity * dt;
 
             float t = d.age / d.lifetime;
-            // القطرة تكبر قليلاً في البداية (تجمّع) ثم تتناقص (تضرب السطح أو تتبخر)
+            // \u0627\u0644\u0642\u0637\u0631\u0629 \u062a\u0643\u0628\u0631 \u0642\u0644\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u062d\u0629 (\u062a\u062c\u0645\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u0629) \u062b\u0645 \u062a\u062a\u0646\u0627\u0642\u0635 (\u062a\u0636\u0644\u0628 \u0627\u0644\u0633\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u064e\u0627\u064d)
             float sizeT = t < 0.3f ? Mathf.Lerp(0.6f, 1f, t / 0.3f) : Mathf.Lerp(1f, 0f, (t - 0.3f) / 0.7f);
             float scale = d.baseRadius * 2f * sizeT;
             d.gameObject.transform.localScale = Vector3.one * Mathf.Max(0f, scale);
