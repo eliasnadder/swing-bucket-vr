@@ -42,7 +42,7 @@ public class BoxContainer : MonoBehaviour
         Vector3 half = HalfExtentsInner;
         float t = wallThickness;
 
-        // الأرضية (Floor)
+        // الأرض (Floor)
         CreatePanel("Floor",
             center: new Vector3(0f, -half.y - t * 0.5f, 0f),
             size: new Vector3(innerSize.x + 2f * t, t, innerSize.z + 2f * t),

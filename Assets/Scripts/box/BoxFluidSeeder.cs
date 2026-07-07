@@ -19,16 +19,28 @@ public class BoxFluidSeeder : MonoBehaviour
     [Range(0f, 1f)] public float jitter = 0.15f;
     public Color paintColor = new Color(0.85f, 0.1f, 0.1f, 1f);
 
-    void Start()
+    // تأكد من أن Seeder ينفذ مرة واحدة فقط
+    private bool hasSeeded = false;
+
+    void Awake()
     {
         if (solver == null) solver = FindAnyObjectByType<SPHFluidSolver>();
         if (box == null) box = GetComponent<BoxContainer>();
-        SeedParticles();
+    }
+
+    void Start()
+    {
+        if (!hasSeeded)
+            SeedParticles();
     }
 
     public void SeedParticles()
     {
+        if (hasSeeded) return;
         if (solver == null || box == null) return;
+
+        // مسح أي جسيمات موجودة مسبقًا
+        solver.ClearParticles();
 
         Vector3 half = box.HalfExtentsInner;
         float fillTopLocalY = -half.y + (2f * half.y * fillRatio);
@@ -55,6 +67,7 @@ public class BoxFluidSeeder : MonoBehaviour
             }
         }
 
+        hasSeeded = true;
         Debug.Log($"[BoxFluidSeeder] Seeded {spawned} SPH particles inside the box.");
     }
 }

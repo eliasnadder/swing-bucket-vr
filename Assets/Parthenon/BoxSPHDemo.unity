@@ -1,0 +1,303 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &-9000000000000000000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4000000}
+  - component: {fileID: 21200000}
+  - component: {fileID: 9500000}
+  - component: {fileID: 5000000}
+  - component: {fileID: 13600000}
+  - component: {fileID: 11400000}
+  - component: {fileID: 11400001}
+  - component: {fileID: 11400002}
+  - component: {fileID: 11400003}
+  - component: {fileID: 11400004}
+  - component: {fileID: 11400005}
+  - component: {fileID: 11400006}
+  - component: {fileID: 11400007}
+  - component: {fileID: 11400008}
+  - component: {fileID: 11400009}
+  m_Layer: 0
+  m_Name: BoxContainer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!1 &4000000
+Transform:
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - serializedVersion: 1
+    m_Child: {fileID: 11400000}
+  - serializedVersion: 1
+    m_Child: {fileID: 11400001}
+  m_Father: {fileID: -9000000000000000000}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &21200000
+BoxContainer:
+  serializedVersion: 1
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name:
+  m_EditorHideFlags: 0
+  m_EditorClassIdentifier:
+  innerSize: {x: 30, y: 20, z: 30}
+  wallThickness: 1
+  openTop: 1
+  wallMaterial: {fileID: 0}
+  innerFaceMaterial: {fileID: 0}
+--- !u!1 &9500000
+BoxFluidSeeder:
+  serializedVersion: 1
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name:
+  m_EditorHideFlags: 0
+  m_EditorClassIdentifier:
+  solver: {fileID: 0}
+  box: {fileID: 0}
+  fillRatio: 0.4
+  particleSpacing: 1.5
+  jitter: 0.15
+  paintColor: {r: 0.85, g: 0.1, b: 0.1, a: 1}
+--- !u!1 &5000000
+BoxRotationController:
+  serializedVersion: 1
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name:
+  m_EditorHideFlags: 0
+  m_EditorClassIdentifier:
+  tiltX: 0
+  tiltZ: 0
+  autoRotate: 1
+  autoAmplitude: 25
+  autoSpeed: 0.6
+--- !u!1 &13600000
+Transform:
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4000000}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &11400000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 13600000}
+  - component: {fileID: 114000000}
+  m_Layer: 0
+  m_Name: BoxWalls
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!1 &114000000
+Transform:
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 11400000}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &11400001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 11400002}
+  m_Layer: 0
+  m_Name: SPHSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!1 &11400002
+Transform:
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 11400001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &11400003
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 11400004}
+  - component: {fileID: 10000000}
+  - component: {fileID: 10000001}
+  m_Layer: 0
+  m_Name: Main Camera
+  m_TagString: MainCamera
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!1 &11400004
+Transform:
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.34202015, y: 0, z: 0, w: 0.9396926}
+  m_LocalPosition: {x: 0, y: 10, z: 20}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 11400003}
+  m_LocalEulerAnglesHint: {x: 20, y: 0, z: 0}
+--- !u!1 &10000000
+Camera:
+  serializedVersion: 2
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name:
+  m_EditorHideFlags: 0
+  m_EditorClassIdentifier:
+  m_Enabled: 1
+  m_ClearFlags: 1
+  m_BackGroundColor: {r: 0.19215686, g: 0.19215686, b: 0.19215686, a: 1}
+  m_NormalizedViewPortRect: {x: 0, y: 0, width: 1, height: 1}
+  m_FieldOfView: 60
+  m_NearClipPlane: 0.3
+  m_FarClipPlane: 1000
+  m_RenderingPath: -1
+  m_CullingMask: {m_Bits: 4294967295}
+  m_OcclusionCullingMask: {m_Bits: 4294967295}
+  m_OcclusionMask: {m_Bits: 0}
+  m_AllowHDR: 0
+  m_AllowMSAA: 1
+  m_AllowDynamicResolution: 0
+  m_TargetDisplay: 0
+  m_TargetEye: 0
+  m_UsePhysicalProperties: 0
+  m_PhysicalCamera: {fileID: 0}
+  m_StereoActiveEye: 0
+  m_GateFit: 0
+  m_StereoScreenSpaceUVAdjustMode: 0
+  m_FocalLength: 0
+  m_LensShift: {x: 0, y: 0}
+  m_SensorSize: {x: 0, y: 0}
+  m_LensShiftIntensity: 0
+--- !u!1 &10000001
+AudioListener:
+  serializedVersion: 1
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: بدون}
+  m_Name:
+  m_EditorHideFlags: 0
+  m_EditorClassIdentifier:
+  m_Enabled: 1
+--- !u!1 &11400005
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 11400006}
+  - component: {fileID: 10000002}
+  m_Layer: 0
+  m_Name: Directional Light
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!1 &11400006
+Transform:
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.70710677}
+  m_LocalPosition: {x: 0, y: 15, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 11400005}
+  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
+--- !u!1 &10000002
+Light:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name:
+  m_EditorHideFlags: 0
+  m_EditorClassIdentifier:
+  m_Enabled: 1
+  serializedVersion: 10
+  m_Type: 0
+  m_Color: {r: 1, g: 0.95686275, b: 0.83921567, a: 1}
+  m_Intensity: 1
+  m_Shadows:
+    m_Type: 0
+  m_ShadowStrength: 1
+  m_ShadowResolution: -1
+  m_ShadowProjection: 0
+  m_ShadowNearPlane: 0.1
+  m_ShadowFarPlane: 100
+  m_ShadowAngle: 0
+  m_ShadowBias: 0
+  m_ShadowNormalBias: 0
+  m_ShadowCasters: 15
+  m_ShadowReceivers: 255
+  m_DynamicShadowCasters: 15
+  m_StaticShadowCasters: 15
+  m_MixedLightingMode: 1
+  m_UseColorTemperature: 0
+  m_ColorTemperature: 6570
+  m_BounceIntensity: 1
+  m_UseViewFrustumForShadowCasterCull: 1
+  m_UseScreenSpaceShadowBuffer: 0
+  m_ShadowSoftnessFade: 0.1
+  m_ShadowCullingSpheres: []
+  m_AreaLightShadowCullingSpheres: []
+  m_CookieSize: {x: 0, y: 0, z: 0}
+  m_Cookie: {fileID: 0}
+  m_InnerSpotAngle: 0
+  m_OuterSpotAngle: 0
+  m_Lightmapping: 4
+  m_LightShadowCasterMode: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_UseRayTracedShadows: 0
+  m_RayTraceBias: 0
+  m_RayTracedContactShadows: 0
