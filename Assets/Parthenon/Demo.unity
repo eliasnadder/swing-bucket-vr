@@ -4048,7 +4048,7 @@ MonoBehaviour:
   initialVolume: 0.5
   maxPaintHeight: 0.3
   Cd: 0.6
-  orificeDiameter: 2
+  orificeDiameter: 0.05
   paintDensity: 1200
   currentPaintColor: {r: 1, g: 0, b: 0, a: 1}
   useBernoulliApproximation: 1

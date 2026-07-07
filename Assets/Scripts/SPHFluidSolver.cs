@@ -76,7 +76,7 @@ public class SPHFluidSolver : MonoBehaviour
     [Tooltip("عدد الجسيمات لكل وحدة حجم — كلما زاد كلما كان التدفق أكثف مرئياً")]
     public float particlesPerVolumeUnit = 50000f;
     [Tooltip("أقصى عدد جسيمات تُصدر في فريم واحد")]
-    public int   maxSpawnPerFrame = 20;
+    public int maxSpawnPerFrame = 20;
 
     [Header("Emission Source (Phase 5)")]
     [Tooltip("مفعّل: الإصدار الداخلي Torricelli/Bernoulli. معطّل: يُترك الإصدار لـ PaintEmitter الخارجي (flowRate)")]
@@ -101,24 +101,24 @@ public class SPHFluidSolver : MonoBehaviour
     private float emissionAccumulator;
 
     // ── Constants for temperature model ──
-    private const float T_REF  = 25f;
+    private const float T_REF = 25f;
     private const float K_TEMP = 0.03f;
     private const float BETA_H = 0.5f;
 
     // ── Public read-only properties for UI/BucketBuilder ──
-    public float   CurrentVolume        => currentVolume;
-    public float   CurrentFlowRate      { get; private set; }
-    public float   PaintHeight          => h_paint;
-    public float   EffectiveViscosity   => viscosity * Mathf.Exp(K_TEMP * (T_REF - temperature));
-    public float   HumiditySpreadFactor => 1f + BETA_H * humidity;
-    public int     ActiveParticleCount  => particles.Count;
+    public float CurrentVolume => currentVolume;
+    public float CurrentFlowRate { get; private set; }
+    public float PaintHeight => h_paint;
+    public float EffectiveViscosity => viscosity * Mathf.Exp(K_TEMP * (T_REF - temperature));
+    public float HumiditySpreadFactor => 1f + BETA_H * humidity;
+    public int ActiveParticleCount => particles.Count;
 
     /// <summary>نصف قطر الفتحة — مصدر واحد لكل البصريات (الفجوة + التيار + القطرات + الانتشار).
     /// ponytail: one derived property instead of three independent radius fields.</summary>
     public float OrificeRadius => Mathf.Max(0.001f, orificeDiameter * 0.5f);
 
     private readonly List<SPHParticle> particles = new List<SPHParticle>(1024);
-    private readonly List<int> neighborIndices   = new List<int>(128);
+    private readonly List<int> neighborIndices = new List<int>(128);
     private SpatialHashGrid spatialHash;
 
     // ── Reference to pendulum (for Torricelli effective gravity) ──
@@ -143,7 +143,7 @@ public class SPHFluidSolver : MonoBehaviour
         initialPaintHeight = maxPaintHeight;
 
         // Auto-find if not wired in Inspector
-        if (pendulum == null)     pendulum     = FindAnyObjectByType<SwingingCoupledSpringPendulum>();
+        if (pendulum == null) pendulum = FindAnyObjectByType<SwingingCoupledSpringPendulum>();
         if (bucketBuilder == null) bucketBuilder = FindAnyObjectByType<BucketBuilder>();
 
         if (pendulum == null)
@@ -152,14 +152,14 @@ public class SPHFluidSolver : MonoBehaviour
 
     private void OnValidate()
     {
-        smoothingRadius    = Mathf.Max(0.001f, smoothingRadius);
-        particleMass       = Mathf.Max(0.000001f, particleMass);
-        restDensity        = Mathf.Max(0.0001f, restDensity);
-        gasConstant        = Mathf.Max(0f, gasConstant);
-        viscosity          = Mathf.Max(0f, viscosity);
-        damping            = Mathf.Max(0f, damping);
-        depthDamping       = Mathf.Clamp01(depthDamping);
-        orificeDiameter    = Mathf.Max(0.001f, orificeDiameter);
+        smoothingRadius = Mathf.Max(0.001f, smoothingRadius);
+        particleMass = Mathf.Max(0.000001f, particleMass);
+        restDensity = Mathf.Max(0.0001f, restDensity);
+        gasConstant = Mathf.Max(0f, gasConstant);
+        viscosity = Mathf.Max(0f, viscosity);
+        damping = Mathf.Max(0f, damping);
+        depthDamping = Mathf.Clamp01(depthDamping);
+        orificeDiameter = Mathf.Max(0.001f, orificeDiameter);
         if (spatialHash != null)
             spatialHash = new SpatialHashGrid(smoothingRadius, useFull3D);
     }
@@ -196,10 +196,10 @@ public class SPHFluidSolver : MonoBehaviour
     private void EmitParticles(float dt)
     {
         if (currentVolume <= 0f) { CurrentFlowRate = 0f; return; }
-        if (pendulum == null)    { CurrentFlowRate = 0f; return; }
+        if (pendulum == null) { CurrentFlowRate = 0f; return; }
 
-        float geff  = Mathf.Max(1f, pendulum.EffectiveGravity);
-        float area  = Mathf.PI * Mathf.Pow(orificeDiameter * 0.5f, 2f);
+        float geff = Mathf.Max(1f, pendulum.EffectiveGravity);
+        float area = Mathf.PI * Mathf.Pow(orificeDiameter * 0.5f, 2f);
         float safeH = Mathf.Max(0f, h_paint);
 
         // ── Dynamic-head (swing) velocity term — Section 2.4.4.2 ──
@@ -226,7 +226,7 @@ public class SPHFluidSolver : MonoBehaviour
             v_out = Mathf.Sqrt(2f * geff * safeH);
         }
 
-        float Q     = Cd * area * v_out;
+        float Q = Cd * area * v_out;
         CurrentFlowRate = Q;
 
         float volumeToEmit = Mathf.Min(Q * dt, currentVolume);
@@ -266,11 +266,11 @@ public class SPHFluidSolver : MonoBehaviour
         {
             position = position,
             velocity = velocity,
-            force    = Vector3.zero,
-            density  = restDensity,
+            force = Vector3.zero,
+            density = restDensity,
             pressure = 0f,
-            color    = color,
-            alive    = true
+            color = color,
+            alive = true
         };
 
         if (!useFull3D)
@@ -279,9 +279,9 @@ public class SPHFluidSolver : MonoBehaviour
         particles.Add(particle);
     }
 
-    public SPHParticle GetParticle(int index)           => particles[index];
-    public void        SetParticle(int index, SPHParticle p) => particles[index] = p;
-    public void        RemoveParticleAt(int index)       => particles.RemoveAt(index);
+    public SPHParticle GetParticle(int index) => particles[index];
+    public void SetParticle(int index, SPHParticle p) => particles[index] = p;
+    public void RemoveParticleAt(int index) => particles.RemoveAt(index);
 
     // ─────────────────────────────────────────
     public void ComputeDensities()
@@ -298,7 +298,7 @@ public class SPHFluidSolver : MonoBehaviour
                 density += particleMass * SPHKernel.Poly6(dist, smoothingRadius);
             }
 
-            particle.density  = Mathf.Max(restDensity * 0.1f, density);
+            particle.density = Mathf.Max(restDensity * 0.1f, density);
             particle.pressure = gasConstant * (particle.density - restDensity);
             particles[i] = particle;
         }
@@ -307,7 +307,7 @@ public class SPHFluidSolver : MonoBehaviour
     public void ComputeForces()
     {
         Vector3 windForce = windDirection.normalized * windCoeff * windSpeed * windSpeed;
-        float   mu        = EffectiveViscosity;
+        float mu = EffectiveViscosity;
 
         // Pre-compute Poly6 gradient normalisation constants for surface tension.
         // Poly6(r,h) = (315 / 64π h⁹) · (h² − r²)³
@@ -320,8 +320,8 @@ public class SPHFluidSolver : MonoBehaviour
         // force attractive. (Equivalent up to one sign-flip to Müller-style
         // "−σ · Poly6Kernel_gradient(r,h)" since the analytical gradient already
         // points toward the neighbour.)
-        bool   wantCohesion = surfaceTensionCoeff > 0f;
-        float  invH9        = wantCohesion ? 1f / Mathf.Pow(smoothingRadius, 9f) : 0f;
+        bool wantCohesion = surfaceTensionCoeff > 0f;
+        float invH9 = wantCohesion ? 1f / Mathf.Pow(smoothingRadius, 9f) : 0f;
         // (315 − 64·π·k_grad)/64·π  where k_grad coalesces two constants we'll absorb
         // implicitly; we keep −6·315/(64π) = −945/32 as the closed-form coefficient.
         const float POLY6GRAD_COEFF = -945f / 32f;
@@ -339,12 +339,12 @@ public class SPHFluidSolver : MonoBehaviour
                 int j = neighborIndices[n];
                 if (j == i) continue;
 
-                SPHParticle nb  = particles[j];
-                Vector3     r   = particle.position - nb.position;
-                float       dist = r.magnitude;
+                SPHParticle nb = particles[j];
+                Vector3 r = particle.position - nb.position;
+                float dist = r.magnitude;
                 if (dist <= 0f || dist >= smoothingRadius) continue;
 
-                float nbDensity   = Mathf.Max(0.0001f, nb.density);
+                float nbDensity = Mathf.Max(0.0001f, nb.density);
                 float pressureTerm = (particle.pressure + nb.pressure) / (2f * nbDensity);
                 force += -particleMass * pressureTerm * SPHKernel.SpikyGradient(r, smoothingRadius);
 
@@ -358,7 +358,7 @@ public class SPHFluidSolver : MonoBehaviour
                 // that keeps the force finite when two droplets touch).
                 if (wantCohesion && dist > surfaceTensionMinDist && dist * dist > minDistSq)
                 {
-                    float ratio2   = smoothingRadius * smoothingRadius - dist * dist;
+                    float ratio2 = smoothingRadius * smoothingRadius - dist * dist;
                     // ∇_i Poly6 = poly6Base · (h²−r²)² · rVec
                     Vector3 gradPoly6 = poly6Base * (ratio2 * ratio2) * r;
                     force += surfaceTensionCoeff * gradPoly6 * particleMass;
@@ -469,15 +469,15 @@ public class SPHFluidSolver : MonoBehaviour
             {
                 position = (pa.position + pb.position) * 0.5f,
                 velocity = (pa.velocity + pb.velocity) * 0.5f,
-                force    = Vector3.zero,
-                density  = (pa.density + pb.density) * 0.5f,
+                force = Vector3.zero,
+                density = (pa.density + pb.density) * 0.5f,
                 pressure = (pa.pressure + pb.pressure) * 0.5f,
-                color    = new Color(
+                color = new Color(
                     (pa.color.r + pb.color.r) * 0.5f,
                     (pa.color.g + pb.color.g) * 0.5f,
                     (pa.color.b + pb.color.b) * 0.5f,
                     (pa.color.a + pb.color.a) * 0.5f),
-                alive    = true
+                alive = true
             };
 
             particles[mergeWith] = merged;
