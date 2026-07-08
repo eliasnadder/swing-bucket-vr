@@ -19,8 +19,8 @@ public class RopeObject
     public float restLength = 5f;
 
     [Tooltip("ثابت مرونة الحبل — k (N/m)")]
-    [Range(1f, 500f)]
-    public float stiffness = 50f;
+    [Range(1f, 5000f)]
+    public float stiffness = 5000f;
 
     [Tooltip("معامل التخميد — c (N·s/m)")]
     [Range(0f, 50f)]

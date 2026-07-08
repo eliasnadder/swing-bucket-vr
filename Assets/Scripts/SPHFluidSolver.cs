@@ -24,7 +24,7 @@ public class SPHFluidSolver : MonoBehaviour
     // ── Paint State (Section 2.4 — Torricelli flow) ──
     [Header("Paint State")]
     [Tooltip("حجم الطلاء الابتدائي (L)")]
-    public float initialVolume = 0.5f;
+    public float initialVolume = 0.0005f;
     [Tooltip("أقصى ارتفاع طلاء في السطل")]
     public float maxPaintHeight = 0.30f;
     [Tooltip("معامل التفريغ Cd")]
@@ -32,7 +32,7 @@ public class SPHFluidSolver : MonoBehaviour
     [Tooltip("قطر فتحة السطل (بوحدات Unity world units) — 0.05 ≈ فتحة متناسبة مع السطل")]
     public float orificeDiameter = 0.05f;
     [Tooltip("كثافة الطلاء (kg/m³)")]
-    public float paintDensity = 1200f;
+    public float paintDensity = 1000f;
     [Tooltip("لون الطلاء الحالي")]
     public Color currentPaintColor = Color.red;
 

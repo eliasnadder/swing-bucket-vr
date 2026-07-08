@@ -33,19 +33,16 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float b = 0.1f;
 
     [Header("Spring-Damper Rope")]
-    public float k_rope = 500f;
-    public float c_rope = 3f;
-
-    // public float k_rope
-    // {
-    //     get => rope.stiffness;
-    //     set => rope.stiffness = value;
-    // }
-    // public float c_rope
-    // {
-    //     get => rope.damping;
-    //     set => rope.damping = value;
-    // }
+    public float k_rope
+    {
+        get => rope.stiffness;
+        set => rope.stiffness = value;
+    }
+    public float c_rope
+    {
+        get => rope.damping;
+        set => rope.damping = value;
+    }
 
     [Header("Wind Parameters")]
     public float windSpeed = 0f;
@@ -56,6 +53,10 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public float initialTheta = 45f;
     public float initialOmega = 0f;
     public float initialPhi = 0f;
+
+    [Header("Paint Parameters")]
+    public float initialPaintVolume = 0.0005f; // نفس initialVolume في SPHFluidSolver
+    public float paintDensity = 1000f;      // نفس paintDensity في SPHFluidSolver
 
     public float PivotX = 0f;
     public float PivotY = 0f;
@@ -93,10 +94,9 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public Vector3 DailVelocity => BucketVelocity;
     public float CurrentLength => currentLength;
     public float CurrentTheta => theta;
-    /// <summary>Completed full swings (½-cycles ÷ 2). Read-only hook for UI/reports.</summary>
     public int SwingCount => swingHalfCycles / 2;
+    public float CurrentMass => currentMass;
 
-    /// <summary>PivotX/PivotY additive offset (cm) applied atop pivotPoint.position.</summary>
     Vector3 PivotOffsetVector => new Vector3(PivotX, PivotY, 0f);
 
 
@@ -127,11 +127,11 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     {
         if (!Application.isPlaying) return;
 
-
         //* ① تهيئة الحبل
         rope.Initialize();
 
-        currentMass = m0;
+        currentMass = m0 + initialPaintVolume * paintDensity; // إضافة كتلة الطلاء
+        // currentMass = m0;
         theta = initialTheta * Mathf.Deg2Rad;
         omega_theta = initialOmega;
         phi = initialPhi * Mathf.Deg2Rad;
@@ -525,7 +525,7 @@ public class SwingingCoupledSpringPendulum : MonoBehaviour
     public void UpdateBucketMass(float lostMass)
     {
         if (float.IsNaN(lostMass) || float.IsInfinity(lostMass)) return;
-        currentMass = Mathf.Max(0.5f, currentMass - lostMass);
+        currentMass = Mathf.Max(m0, currentMass - lostMass); // لا تنزل عن كتلة الدلو فارغًا
     }
 
     public void ResetLength(float newL0)
